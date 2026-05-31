@@ -404,7 +404,7 @@ export function useGame(userId: string, userName: string) {
       setState(stateRef.current);
       
       if (!vsComputer) {
-        await insforge.database.from("rooms").insert({ code: roomCode, host_id: userId }).catch(console.error);
+        await insforge.database.from("rooms").insert({ code: roomCode, host_id: userId }).then(({ error }) => { if (error) console.error(error); });
       }
 
       const humanPlayer: Player = {
