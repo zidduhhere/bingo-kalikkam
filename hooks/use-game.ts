@@ -2,7 +2,7 @@
 import { useState, useCallback } from "react";
 import { useWebSocket } from "./use-websocket";
 import { detectStrikes } from "@/lib/bingo-logic";
-import type { ServerMessage, ClientMessage, GameState } from "@/lib/ws-types";
+import type { ServerMessage, GameState } from "@/lib/ws-types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080";
 

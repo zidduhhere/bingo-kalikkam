@@ -31,7 +31,7 @@ export default function SetupPage() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-zinc-50 p-6 dark:bg-zinc-950">
       <div className="text-center">
         <h1 className="text-2xl font-bold">Arrange Your Board</h1>
-        <p className="mt-1 text-sm text-zinc-500">Your opponent won't see the number positions.</p>
+        <p className="mt-1 text-sm text-zinc-500">{"Your opponent won't see the number positions."}</p>
       </div>
       <Grid grid={grid} calledNumbers={new Set()} />
       <div className="flex gap-3 w-full max-w-xs">

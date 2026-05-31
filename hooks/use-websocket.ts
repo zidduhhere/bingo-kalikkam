@@ -12,34 +12,38 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionsRef = useRef(options);
-  optionsRef.current = options;
-
-  const connect = useCallback(() => {
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-    ws.onopen = () => optionsRef.current.onOpen?.();
-    ws.onmessage = (event) => {
-      try {
-        const msg: ServerMessage = JSON.parse(event.data);
-        optionsRef.current.onMessage(msg);
-      } catch {
-        console.error("Failed to parse WS message", event.data);
-      }
-    };
-    ws.onclose = () => {
-      optionsRef.current.onClose?.();
-      reconnectRef.current = setTimeout(connect, 3000);
-    };
-    ws.onerror = (err) => console.error("WebSocket error", err);
-  }, [url]);
+  const connectRef = useRef<() => void>(() => {});
 
   useEffect(() => {
+    optionsRef.current = options;
+  });
+
+  useEffect(() => {
+    const connect = () => {
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+      ws.onopen = () => optionsRef.current.onOpen?.();
+      ws.onmessage = (event) => {
+        try {
+          const msg: ServerMessage = JSON.parse(event.data);
+          optionsRef.current.onMessage(msg);
+        } catch {
+          console.error("Failed to parse WS message", event.data);
+        }
+      };
+      ws.onclose = () => {
+        optionsRef.current.onClose?.();
+        reconnectRef.current = setTimeout(() => connectRef.current(), 3000);
+      };
+      ws.onerror = (err) => console.error("WebSocket error", err);
+    };
+    connectRef.current = connect;
     connect();
     return () => {
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [url]);
 
   const send = useCallback((msg: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

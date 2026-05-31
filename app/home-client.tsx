@@ -28,9 +28,11 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
         </div>
         <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {userImage && <img src={userImage} alt="" className="h-8 w-8 rounded-full" />}
             <span className="text-sm font-medium">{userName}</span>
           </div>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/auth/logout" className="text-xs text-zinc-400 hover:text-zinc-600">Sign out</a>
         </div>
         <div className="flex flex-col gap-3">

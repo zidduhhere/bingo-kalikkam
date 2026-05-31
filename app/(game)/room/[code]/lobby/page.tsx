@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { useUser } from "@auth0/nextjs-auth0";
 import { useGameContext } from "@/contexts/game-context";
 import { RoomCodeBadge } from "@/components/ui/room-code-badge";
 import { Button } from "@/components/ui/button";

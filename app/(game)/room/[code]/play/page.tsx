@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { useUser } from "@auth0/nextjs-auth0";
 import { useGameContext } from "@/contexts/game-context";
 import { Grid } from "@/components/bingo/grid";
 import { StrikeTracker } from "@/components/bingo/strike-tracker";
