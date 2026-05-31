@@ -31,6 +31,7 @@ export default function PlayPage() {
 
   const userId = user?.id ?? "";
   const calledSet = new Set(state.calledNumbers);
+  const lastCalledNumber = state.calledNumbers.length > 0 ? state.calledNumbers[state.calledNumbers.length - 1] : null;
   const myStrikes = state.myGrid.length === 5 ? detectStrikes(state.myGrid, calledSet) : 0;
   const isMyTurn = state.currentTurnId === userId;
   const isComputerGame = state.players.some(p => p.isComputer);
@@ -64,9 +65,12 @@ export default function PlayPage() {
 
   useEffect(() => {
     if (state.phase === "finished") {
-      const audio = new Audio("/adich-keri%20vaa.webm");
-      audio.volume = 1.0;
-      audio.play().catch(e => console.log("Game over audio blocked:", e));
+      const didIWin = state.winners.some(w => w.id === userId);
+      if (didIWin) {
+        const audio = new Audio("/adich-keri%20vaa.webm");
+        audio.volume = 1.0;
+        audio.play().catch(e => console.log("Game over audio blocked:", e));
+      }
     } else if (state.phase === "setup") {
       router.push(`/room/${code}/setup${isComputerGame ? '?mode=computer' : ''}`);
     }
@@ -293,7 +297,8 @@ export default function PlayPage() {
 
             <Grid 
               grid={state.myGrid} 
-              calledNumbers={calledSet} 
+              calledNumbers={calledSet}
+              lastCalledNumber={lastCalledNumber}
               onCellClick={handleCellClick}
               onCellKeyDown={handleCellKeyDown}
               buttonRefs={cellRefs}

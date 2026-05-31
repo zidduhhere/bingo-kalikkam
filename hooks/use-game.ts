@@ -141,33 +141,39 @@ export function useGame(userId: string, userName: string) {
   }, [state.players, state.phase, state.winners, userId]);
 
 
-  // Write leaderboard for EVERY player when the game ends — done via effect
-  // rather than inside handleEvent so it fires on all clients regardless of
-  // who published PLAYER_WON (pub/sub doesn't echo to the sender).
+  // Write leaderboard via RPC when the game ends.
+  // We use a rule to elect a single client to record the match to avoid duplicates.
   const leaderboardWrittenRef = useRef(false);
   useEffect(() => {
-    if (state.phase !== "finished" || !userId || userId === "computer" || isLocalGame.current) return;
+    if (state.phase !== "finished" || !userId || isLocalGame.current) return;
     if (leaderboardWrittenRef.current) return;
     leaderboardWrittenRef.current = true;
 
-    const didWin = state.winners.some(w => w.id === userId);
-    insforge.database.from("leaderboard").select("*").eq("user_id", userId).single().then(async ({ data }: any) => {
-      if (data) {
-        await insforge.database.from("leaderboard").update({
-          user_name: userName,
-          wins: didWin ? data.wins + 1 : data.wins,
-          losses: didWin ? data.losses : data.losses + 1,
-        }).eq("user_id", userId);
-      } else {
-        await insforge.database.from("leaderboard").insert({
-          user_id: userId,
-          user_name: userName,
-          wins: didWin ? 1 : 0,
-          losses: didWin ? 0 : 1,
-        });
-      }
-    });
-  }, [state.phase, state.winners, userId, userName]);
+    const humanWinners = state.winners.filter(w => !w.isComputer);
+    let shouldRecord = false;
+    
+    if (humanWinners.length > 0) {
+      // First human winner records it
+      shouldRecord = humanWinners[0].id === userId;
+    } else {
+      // Computer won. The host (first human) records it.
+      const host = state.players.find(p => !p.isComputer);
+      shouldRecord = host?.id === userId;
+    }
+
+    if (shouldRecord) {
+      const winner = humanWinners.length > 0 ? humanWinners[0] : null;
+      const loserIds = state.players
+        .filter(p => !p.isComputer && (!winner || p.id !== winner.id))
+        .map(p => p.id);
+
+      insforge.rpc("record_match_result", {
+        p_winner_id: winner ? winner.id : null,
+        p_winner_name: winner ? winner.name : null,
+        p_loser_ids: loserIds
+      }).catch(e => console.error("Failed to record match result", e));
+    }
+  }, [state.phase, state.winners, userId, state.players]);
 
   // When all non-computer players are ready, the host fires GAME_START_PLAYING.
   // Doing this reactively (not inside submitGrid) avoids the race where both
@@ -182,7 +188,10 @@ export function useGame(userId: string, userName: string) {
     if (!isHost) return;
     if (gameStartSentRef.current) return;
     gameStartSentRef.current = true;
-    publishRef.current("GAME_START_PLAYING", { currentTurnId: state.players[0].id });
+    
+    // Pick random starting player
+    const randomPlayerId = state.players[Math.floor(Math.random() * state.players.length)].id;
+    publishRef.current("GAME_START_PLAYING", { currentTurnId: randomPlayerId });
   }, [state.phase, state.players, userId]);
 
   // ── event handler ─────────────────────────────────────────────────────────
@@ -391,6 +400,10 @@ export function useGame(userId: string, userName: string) {
       setActiveRoomCode(roomCode);
       stateRef.current = { ...stateRef.current, roomCode };
       setState(stateRef.current);
+      
+      if (!vsComputer) {
+        await insforge.database.from("rooms").insert({ code: roomCode, host_id: userId }).catch(console.error);
+      }
 
       const humanPlayer: Player = {
         id: userId,
@@ -470,7 +483,7 @@ export function useGame(userId: string, userName: string) {
       // For vs-computer local games, trigger start immediately since the
       // reactive useEffect is disabled for local games (isLocalGame.current).
       if (computer) {
-        const firstTurnId = updatedPlayers[0]?.id;
+        const firstTurnId = updatedPlayers[Math.floor(Math.random() * updatedPlayers.length)]?.id;
         if (firstTurnId) {
           await publish("GAME_START_PLAYING", { currentTurnId: firstTurnId });
         }

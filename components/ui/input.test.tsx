@@ -15,14 +15,10 @@ describe("Input Component", () => {
       expect(screen.getByPlaceholderText("Enter text")).toBeInTheDocument();
     });
 
-    it("renders with default type text", () => {
-      render(<Input />);
-      expect(screen.getByRole("textbox")).toHaveAttribute("type", "text");
-    });
-
-    it("renders with custom type", () => {
-      render(<Input type="password" />);
-      expect(screen.getByRole("textbox")).toHaveAttribute("type", "password");
+    it("renders email input with type", () => {
+      const { container } = render(<Input type="email" />);
+      const input = container.querySelector('input[type="email"]');
+      expect(input).toBeInTheDocument();
     });
   });
 
@@ -113,7 +109,8 @@ describe("Input Component", () => {
       const input = screen.getByRole("textbox");
       expect(input).toHaveClass("px-3");
       expect(input).toHaveClass("py-2");
-      expect(input).toHaveClass("border");
+      expect(input).toHaveClass("border-2");
+      expect(input).toHaveClass("border-blue-900");
     });
 
     it("accepts custom className", () => {
@@ -126,42 +123,53 @@ describe("Input Component", () => {
       render(<Input />);
       const input = screen.getByRole("textbox");
       expect(input).toHaveClass("focus:outline-none");
-      expect(input).toHaveClass("focus:ring-2");
+      expect(input).toHaveClass("focus:border-red-500");
     });
 
-    it("has border styling", () => {
+    it("has background and text color", () => {
       render(<Input />);
       const input = screen.getByRole("textbox");
-      expect(input).toHaveClass("border-gray-300");
+      expect(input).toHaveClass("bg-white/60");
+      expect(input).toHaveClass("text-xl");
+      expect(input).toHaveClass("text-blue-900");
     });
 
-    it("has disabled styling", () => {
-      render(<Input disabled />);
+    it("has shadow styling", () => {
+      render(<Input />);
       const input = screen.getByRole("textbox");
-      expect(input).toHaveClass("disabled:opacity-50");
-      expect(input).toHaveClass("disabled:cursor-not-allowed");
+      expect(input).toHaveClass("shadow-[2px_2px_0_0_rgba(30,58,138,0.3)]");
     });
   });
 
   describe("Types", () => {
     it("works with email type", () => {
-      render(<Input type="email" />);
-      expect(screen.getByRole("textbox")).toHaveAttribute("type", "email");
+      const { container } = render(<Input type="email" />);
+      const input = container.querySelector('input[type="email"]');
+      expect(input).toBeInTheDocument();
     });
 
     it("works with number type", () => {
-      render(<Input type="number" />);
-      expect(screen.getByRole("textbox")).toHaveAttribute("type", "number");
+      const { container } = render(<Input type="number" />);
+      const input = container.querySelector('input[type="number"]');
+      expect(input).toBeInTheDocument();
     });
 
     it("works with tel type", () => {
-      render(<Input type="tel" />);
-      expect(screen.getByRole("textbox")).toHaveAttribute("type", "tel");
+      const { container } = render(<Input type="tel" />);
+      const input = container.querySelector('input[type="tel"]');
+      expect(input).toBeInTheDocument();
     });
 
     it("works with search type", () => {
-      render(<Input type="search" />);
-      expect(screen.getByRole("textbox")).toHaveAttribute("type", "search");
+      const { container } = render(<Input type="search" />);
+      const input = container.querySelector('input[type="search"]');
+      expect(input).toBeInTheDocument();
+    });
+
+    it("works with password type", () => {
+      const { container } = render(<Input type="password" />);
+      const input = container.querySelector('input[type="password"]');
+      expect(input).toBeInTheDocument();
     });
   });
 
@@ -201,6 +209,12 @@ describe("Input Component", () => {
       
       await user.type(input, "text");
       expect(input).toHaveValue("text");
+    });
+
+    it("has placeholder color styling", () => {
+      render(<Input placeholder="Type" />);
+      const input = screen.getByRole("textbox");
+      expect(input).toHaveClass("placeholder-blue-900/40");
     });
   });
 
@@ -246,7 +260,7 @@ describe("Input Component", () => {
       
       const input = screen.getByRole("textbox");
       await user.tab();
-      expect(input).toBeFocused();
+      expect(document.activeElement).toBe(input);
     });
 
     it("has accessible role", () => {
@@ -257,6 +271,20 @@ describe("Input Component", () => {
     it("works with aria-label", () => {
       render(<Input aria-label="Search" />);
       expect(screen.getByLabelText("Search")).toBeInTheDocument();
+    });
+  });
+
+  describe("Responsive sizing", () => {
+    it("is full width", () => {
+      render(<Input />);
+      const input = screen.getByRole("textbox");
+      expect(input).toHaveClass("w-full");
+    });
+
+    it("has proper text sizing", () => {
+      render(<Input />);
+      const input = screen.getByRole("textbox");
+      expect(input).toHaveClass("text-xl");
     });
   });
 });

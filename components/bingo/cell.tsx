@@ -3,6 +3,7 @@ import React from "react";
 interface CellProps { 
   value: number; 
   isCalled: boolean; 
+  isLastCalled?: boolean;
   isEditing?: boolean; 
   onClick?: () => void; 
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void; 
@@ -11,7 +12,7 @@ interface CellProps {
   buttonRef?: React.Ref<HTMLButtonElement>;
 }
 
-export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown, inputRef, buttonRef }: CellProps) {
+export function Cell({ value, isCalled, isLastCalled, isEditing, onClick, onChange, onKeyDown, inputRef, buttonRef }: CellProps) {
   // Irregular hand-drawn border radiuses to simulate pen boxes, now thicker and more opaque
   const drawnBorder = "border-[3px] border-blue-900 shadow-[2px_2px_0_0_rgba(30,58,138,0.2)] rounded-[255px_15px_225px_15px/15px_225px_15px_255px]";
 
@@ -44,12 +45,17 @@ export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown,
       onClick={onClick}
       onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLButtonElement>}
       className={cn(
-        "relative flex h-14 w-14 items-center justify-center text-3xl font-bold transition-all select-none focus:outline-none bg-transparent cursor-pointer overflow-hidden",
+        "relative flex h-14 w-14 items-center justify-center text-3xl font-bold transition-all select-none focus:outline-none bg-transparent cursor-pointer overflow-visible",
         drawnBorder,
         isCalled ? "text-red-700 bg-red-50/50" : "text-blue-900 hover:bg-blue-50/80 active:bg-blue-100",
+        isLastCalled && "border-amber-500 shadow-[0_0_14px_4px_rgba(251,191,36,0.6)] bg-amber-50/70 scale-110 z-10",
         "focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-transparent"
       )}
     >
+      {/* Pulsing outer ring for last called */}
+      {isLastCalled && (
+        <span className="absolute -inset-1 rounded-[255px_15px_225px_15px/15px_225px_15px_255px] border-2 border-amber-400 animate-ping opacity-60 pointer-events-none" />
+      )}
       <span className="z-10 mix-blend-multiply">{value === 0 ? "?" : value}</span>
       {isCalled && (
         <svg className="absolute inset-0 w-full h-full text-red-600 pointer-events-none opacity-90" viewBox="0 0 100 100" preserveAspectRatio="none">

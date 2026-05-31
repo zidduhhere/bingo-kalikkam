@@ -2,7 +2,7 @@ import { StrikeTracker } from "./strike-tracker";
 import type { Player } from "@/lib/ws-types";
 export function PlayerList({ players, currentUserId }: { players: Player[]; currentUserId: string }) {
   return (
-    <div className="flex flex-col gap-4 p-4 border-[3px] border-blue-900/30 bg-white/50 backdrop-blur-sm rounded-[225px_15px_255px_15px/15px_255px_15px_225px] rotate-1 shadow-sm w-full overflow-hidden">
+    <div className="flex flex-col gap-4 p-4 border-[3px] border-blue-900/30 bg-white/50 backdrop-blur-sm rounded-[225px_15px_255px_15px/15px_255px_15px_225px] rotate-1 shadow-sm w-full">
       <h3 className="text-3xl font-black text-blue-950 underline decoration-blue-900/30 decoration-[3px] underline-offset-4">Scoreboard</h3>
       <ul className="flex flex-col gap-3">
         {players.map((p) => (

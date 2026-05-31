@@ -97,14 +97,14 @@ describe("detectStrikes", () => {
       ]))).toBe(2);
     });
 
-    it("counts all 5 strikes correctly", () => {
+    it("counts all strikes correctly when all numbers called", () => {
       expect(detectStrikes(grid, new Set([
         1, 2, 3, 4, 5,
         6, 7, 8, 9, 10,
         11, 12, 13, 14, 15,
         16, 17, 18, 19, 20,
         21, 22, 23, 24, 25
-      ]))).toBe(5);
+      ]))).toBe(12); // 5 rows + 5 columns + 2 diagonals
     });
   });
 

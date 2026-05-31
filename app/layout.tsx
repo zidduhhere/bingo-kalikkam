@@ -50,15 +50,7 @@ export default function RootLayout({
             <br/> (15 x 3 = 45)
           </div>
 
-          {/* Handrawn Doodle */}
-          <div 
-            className="absolute top-[40%] right-[5%] md:right-[20%] w-[300px] h-[300px] opacity-40 mix-blend-multiply -rotate-10"
-            style={{ 
-              backgroundImage: 'url(/student-doodle.png)',
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat'
-            }}
-          ></div>
+
         </div>
 
         <LanguageProvider>

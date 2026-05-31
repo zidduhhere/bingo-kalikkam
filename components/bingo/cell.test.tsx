@@ -135,7 +135,7 @@ describe("Cell Component", () => {
 
     it("allows focus on the input", () => {
       render(
-        <Cell value={5} isCalled={false} isEditing={true} />
+        <Cell value={5} isCalled={false} isEditing={true} onChange={() => {}} />
       );
       const input = screen.getByRole("textbox");
       input.focus();
@@ -152,6 +152,7 @@ describe("Cell Component", () => {
           isCalled={false}
           isEditing={true}
           inputRef={inputRef}
+          onChange={() => {}}
         />
       );
       expect(inputRef.current).toBeInstanceOf(HTMLInputElement);
@@ -181,6 +182,7 @@ describe("Cell Component", () => {
           isCalled={false}
           isEditing={true}
           onKeyDown={onKeyDown}
+          onChange={() => {}}
         />
       );
       const input = screen.getByRole("textbox");
@@ -196,6 +198,7 @@ describe("Cell Component", () => {
           isCalled={false}
           isEditing={true}
           onKeyDown={onKeyDown}
+          onChange={() => {}}
         />
       );
       const input = screen.getByRole("textbox");

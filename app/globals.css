@@ -9,6 +9,25 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-caveat), cursive;
+
+  /*
+   * Caveat font has unusually tall ascenders/descenders.
+   * Tailwind's large text-* utilities default to line-height: 1,
+   * which clips the glyphs. Override every size to a safe minimum.
+   */
+  --text-xs--line-height: 1.5;
+  --text-sm--line-height: 1.5;
+  --text-base--line-height: 1.5;
+  --text-lg--line-height: 1.5;
+  --text-xl--line-height: 1.5;
+  --text-2xl--line-height: 1.4;
+  --text-3xl--line-height: 1.4;
+  --text-4xl--line-height: 1.35;
+  --text-5xl--line-height: 1.3;
+  --text-6xl--line-height: 1.3;
+  --text-7xl--line-height: 1.25;
+  --text-8xl--line-height: 1.25;
+  --text-9xl--line-height: 1.2;
 }
 
 body {
@@ -16,9 +35,21 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   font-size: 1.5rem;
+  line-height: 1.5;
+  overflow-x: hidden;
 }
 
-/* Ensure text inputs inherit the handwriting font */
+/* Ensure text inputs and buttons inherit the handwriting font */
 input, button {
   font-family: inherit;
+  line-height: inherit;
+}
+
+/*
+ * Safety net: Tailwind utilities like leading-none (line-height:1) or
+ * leading-tight (1.25) are still too cramped for Caveat. Clamp them.
+ * This uses lower specificity than utility classes so it only fills gaps.
+ */
+* {
+  min-height: 0;
 }
