@@ -140,6 +140,35 @@ export function useGame(userId: string, userName: string) {
     });
   }, [state.players, state.phase, state.winners, userId]);
 
+
+  // Write leaderboard for EVERY player when the game ends — done via effect
+  // rather than inside handleEvent so it fires on all clients regardless of
+  // who published PLAYER_WON (pub/sub doesn't echo to the sender).
+  const leaderboardWrittenRef = useRef(false);
+  useEffect(() => {
+    if (state.phase !== "finished" || !userId || userId === "computer" || isLocalGame.current) return;
+    if (leaderboardWrittenRef.current) return;
+    leaderboardWrittenRef.current = true;
+
+    const didWin = state.winners.some(w => w.id === userId);
+    insforge.database.from("leaderboard").select("*").eq("user_id", userId).single().then(async ({ data }: any) => {
+      if (data) {
+        await insforge.database.from("leaderboard").update({
+          user_name: userName,
+          wins: didWin ? data.wins + 1 : data.wins,
+          losses: didWin ? data.losses : data.losses + 1,
+        }).eq("user_id", userId);
+      } else {
+        await insforge.database.from("leaderboard").insert({
+          user_id: userId,
+          user_name: userName,
+          wins: didWin ? 1 : 0,
+          losses: didWin ? 0 : 1,
+        });
+      }
+    });
+  }, [state.phase, state.winners, userId, userName]);
+
   // ── event handler ─────────────────────────────────────────────────────────
 
   const gridsRef = useRef<Record<string, number[][]>>({});
@@ -153,8 +182,6 @@ export function useGame(userId: string, userName: string) {
       // when the host re-broadcast the player list after a join.
       const prevState = stateRef.current;
       let nextState = prevState;
-      let pendingLeaderboardUpdate: (() => void) | null = null;
-
       switch (event) {
         case "ROOM_CREATED": {
           const code = payload.roomCode as string;
@@ -245,27 +272,7 @@ export function useGame(userId: string, userName: string) {
               nextState = { ...nextState, phase: "finished", currentTurnId: null };
             }
 
-            if (nextState.phase === "finished" && userId && userId !== "computer") {
-              const didWin = newWinners.some(w => w.id === userId);
-              pendingLeaderboardUpdate = () => {
-                insforge.database.from("leaderboard").select("*").eq("user_id", userId).single().then(async ({ data }: any) => {
-                  if (data) {
-                    await insforge.database.from("leaderboard").update({
-                      user_name: userName,
-                      wins: didWin ? data.wins + 1 : data.wins,
-                      losses: didWin ? data.losses : data.losses + 1,
-                    }).eq("user_id", userId);
-                  } else {
-                    await insforge.database.from("leaderboard").insert({
-                      user_id: userId,
-                      user_name: userName,
-                      wins: didWin ? 1 : 0,
-                      losses: didWin ? 0 : 1,
-                    });
-                  }
-                });
-              };
-            }
+
           }
           break;
         }
@@ -317,7 +324,6 @@ export function useGame(userId: string, userName: string) {
       stateRef.current = nextState;
       setState(nextState);
 
-      pendingLeaderboardUpdate?.();
 
       // Host re-broadcasts the full authoritative player list so the joining
       // player (and any late arrivals) see themselves in the lobby.
