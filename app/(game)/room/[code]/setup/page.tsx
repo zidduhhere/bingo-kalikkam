@@ -1,15 +1,25 @@
 "use client";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useGameContext } from "@/contexts/game-context";
 import { Grid } from "@/components/bingo/grid";
 import { Button } from "@/components/ui/button";
 import { shuffle, range } from "@/lib/utils";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 export default function SetupPage() {
   const { code } = useParams<{ code: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const { actions, setMyGrid } = useGameContext();
+  const { state, actions, setMyGrid } = useGameContext();
+  const mode = searchParams.get("mode");
+  const hasCreated = useRef(false);
+
+  useEffect(() => {
+    if (code === "local" && mode === "computer" && !state.roomCode && !hasCreated.current) {
+      hasCreated.current = true;
+      actions.createRoom(true);
+    }
+  }, [code, mode, state.roomCode, actions]);
 
   const [grid, setGrid] = useState<number[][]>(() => 
     Array.from({ length: 5 }, () => Array(5).fill(0))
@@ -126,7 +136,7 @@ export default function SetupPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6 bg-transparent">
-      <div className="text-center max-w-sm rotate-[-1deg]">
+      <div className="text-center max-w-sm -rotate-1">
         <h1 className="text-4xl font-bold text-blue-900 drop-shadow-sm">Arrange Your Board</h1>
         <p className="mt-2 text-lg text-blue-800/80">Tap a cell to enter a number (1-25). Type a 2-digit number or hit Enter to skip to the next cell.</p>
       </div>

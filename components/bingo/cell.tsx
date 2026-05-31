@@ -12,8 +12,8 @@ interface CellProps {
 }
 
 export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown, inputRef, buttonRef }: CellProps) {
-  // Irregular hand-drawn border radiuses to simulate pen boxes
-  const drawnBorder = "border-[3px] border-blue-900/80 [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]";
+  // Irregular hand-drawn border radiuses to simulate pen boxes, now thicker and more opaque
+  const drawnBorder = "border-[3px] border-blue-900 shadow-[2px_2px_0_0_rgba(30,58,138,0.2)] rounded-[255px_15px_225px_15px/15px_225px_15px_255px]";
 
   if (isEditing) {
     return (
@@ -29,7 +29,7 @@ export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown,
         className={cn(
           "flex h-14 w-14 items-center justify-center text-3xl font-bold text-center transition-all bg-transparent",
           drawnBorder,
-          "text-blue-900 focus:border-red-500 focus:outline-none focus:[border-radius:15px_255px_15px_225px/255px_15px_225px_15px]",
+          "text-blue-900 focus:border-red-600 focus:outline-none focus:shadow-[4px_4px_0_0_rgba(220,38,38,0.3)] focus:bg-white/80 focus:rounded-[15px_255px_15px_225px/255px_15px_225px_15px]",
           value === 0 && "border-dashed border-blue-900/40 placeholder:text-blue-900/30"
         )}
         placeholder="?"
@@ -45,14 +45,16 @@ export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown,
       className={cn(
         "relative flex h-14 w-14 items-center justify-center text-3xl font-bold transition-all select-none focus:outline-none bg-transparent cursor-pointer overflow-hidden",
         drawnBorder,
-        isCalled ? "text-red-700 opacity-90" : "text-blue-900 hover:bg-blue-900/5",
-        "focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-[#fdfaf3]"
+        isCalled ? "text-red-700 bg-red-50/50" : "text-blue-900 hover:bg-blue-50/80 active:bg-blue-100",
+        "focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-transparent"
       )}
     >
       <span className="z-10 mix-blend-multiply">{value === 0 ? "?" : value}</span>
       {isCalled && (
-        <svg className="absolute inset-0 w-full h-full text-red-500/70 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M 20,20 Q 50,45 80,80 M 80,20 Q 50,55 20,80" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" className="drop-shadow-sm" />
+        <svg className="absolute inset-0 w-full h-full text-red-600 pointer-events-none opacity-90" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {/* Multiple paths to simulate a thick, scribbled marker cross */}
+          <path d="M 15,15 Q 50,45 85,85 M 85,15 Q 50,55 15,85" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" className="drop-shadow-sm opacity-80" />
+          <path d="M 17,13 Q 50,45 83,87 M 87,13 Q 50,55 13,87" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" className="drop-shadow-sm opacity-60" />
         </svg>
       )}
     </button>

@@ -1,4 +1,4 @@
-
+export type Difficulty = "normal" | "hard";
 
 export type ServerMessage =
   | { type: "ROOM_CREATED"; roomCode: string }
@@ -10,6 +10,8 @@ export type ServerMessage =
   | { type: "STRIKE"; userId: string; strikeCount: number; line: number[] }
   | { type: "PLAYER_WON"; winnerId: string; winnerName: string }
   | { type: "GAME_OVER" }
+  | { type: "GAME_OVER_GRIDS"; grids: Record<string, number[][]> }
+  | { type: "DIFFICULTY_CHANGED"; difficulty: "normal" | "hard" }
   | { type: "ERROR"; message: string };
 
 export interface Player {
@@ -29,4 +31,6 @@ export interface GameState {
   myGrid: number[][];
   winners: Player[];
   currentTurnId: string | null;
+  difficulty: "normal" | "hard";
+  opponentGrids?: Record<string, number[][]>;
 }

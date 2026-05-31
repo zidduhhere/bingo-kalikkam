@@ -1,8 +1,10 @@
 "use client";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRealtime } from "./use-realtime";
 import { detectStrikes } from "@/lib/bingo-logic";
-import type { GameState, Player } from "@/lib/ws-types";
+import type { GameState, Player, Difficulty } from "@/lib/ws-types";
+import { getBestComputerMove } from "@/lib/bingo-ai";
+import { insforge } from "@/lib/insforge";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,7 @@ export interface GameActions {
   ready: () => void;
   submitGrid: (grid: number[][]) => void;
   callNumber: (n: number) => void;
+  setDifficulty: (difficulty: Difficulty) => void;
 }
 
 // ─── initial state ────────────────────────────────────────────────────────────
@@ -37,12 +40,14 @@ const INITIAL_STATE: GameState = {
   myGrid: [],
   winners: [],
   currentTurnId: null,
+  difficulty: "normal",
 };
 
 // ─── hook ────────────────────────────────────────────────────────────────────
 
 export function useGame(userId: string, userName: string) {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
+  const isLocalGame = useRef(false);
 
   // We need a ref so publish can always see the latest state without re-creating actions
   const stateRef = useRef(state);
@@ -51,6 +56,72 @@ export function useGame(userId: string, userName: string) {
   // roomCode drives the realtime subscription — starts empty, set on CREATE/JOIN
   const [activeRoomCode, setActiveRoomCode] = useState("");
 
+  // Load from local storage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sessionStr = localStorage.getItem("bingo_session");
+    if (sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        if (Date.now() - session.lastUpdated < 60000 && session.state.roomCode) {
+          if (window.location.pathname.includes(session.state.roomCode) || session.state.roomCode === "LOCAL") {
+            setState(session.state);
+            setActiveRoomCode(session.state.roomCode);
+            if (session.grids) {
+              gridsRef.current = session.grids;
+            }
+            if (session.isLocalGame) {
+              isLocalGame.current = session.isLocalGame;
+            }
+          }
+        } else {
+          localStorage.removeItem("bingo_session");
+        }
+      } catch (e) {
+        console.error("Failed to parse bingo session", e);
+      }
+    }
+  }, []);
+
+  // Save to local storage on state change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (state.roomCode) {
+      localStorage.setItem("bingo_session", JSON.stringify({
+        lastUpdated: Date.now(),
+        state,
+        grids: gridsRef.current,
+        isLocalGame: isLocalGame.current
+      }));
+    }
+  }, [state]);
+
+  const previousStrikes = useRef<Record<string, number>>({});
+  useEffect(() => {
+    if (state.phase !== "playing") return;
+    
+    state.players.forEach(p => {
+      // In multiplayer, only evaluate my own player to avoid duplicate broadcasts.
+      // In local mode, evaluate all players (including computer).
+      if (!isLocalGame.current && p.id !== userId) return;
+
+      const prev = previousStrikes.current[p.id] || 0;
+      if (p.strikeCount > prev) {
+        previousStrikes.current[p.id] = p.strikeCount;
+        
+        publishRef.current("STRIKE", {
+          userId: p.id,
+          strikeCount: p.strikeCount,
+          line: [],
+        });
+        
+        if (p.strikeCount >= 5 && !state.winners.find(w => w.id === p.id)) {
+          publishRef.current("PLAYER_WON", { winnerId: p.id, winnerName: p.name });
+        }
+      }
+    });
+  }, [state.players, state.phase, state.winners, userId]);
+
   // ── event handler ─────────────────────────────────────────────────────────
 
   // Declare publish early so it can be used in the event handler via ref or directly if hoisted
@@ -58,142 +129,204 @@ export function useGame(userId: string, userName: string) {
   // Instead, let's just use the state reducer to compute the new state, and if we are the host, we trigger a broadcast from an effect.
   // Or better, let's just make the event handler async and not use the setState callback for everything, but read from stateRef!
 
+  // Store grids for computer + self (needed for strike evaluation)
+  const gridsRef = useRef<Record<string, number[][]>>({});
+
   const handleEvent = useCallback(
     async (event: string, payload: Record<string, unknown>) => {
-      const prev = stateRef.current;
-      let nextState = prev;
+      setState((prevReactState) => {
+        let nextState = prevReactState;
 
-      switch (event) {
-        case "ROOM_CREATED": {
-          const code = payload.roomCode as string;
-          setActiveRoomCode(code);
-          nextState = { ...prev, roomCode: code };
-          break;
-        }
-
-        case "PLAYER_JOINED": {
-          if (payload.joining) {
-            const joiningId = payload.userId as string;
-            if (prev.players.find((p) => p.id === joiningId)) break;
-            
-            const newPlayer: Player = {
-              id: joiningId,
-              name: payload.userName as string,
-              isComputer: false,
-              isReady: false,
-              strikeCount: 0,
-            };
-            const newPlayers = [...prev.players, newPlayer];
-            nextState = { ...prev, players: newPlayers };
-            break;
-          } else {
-            nextState = { ...prev, players: payload.players as Player[] };
+        switch (event) {
+          case "ROOM_CREATED": {
+            const code = payload.roomCode as string;
+            setActiveRoomCode(code);
+            nextState = { ...prevReactState, roomCode: code };
             break;
           }
-        }
 
-        case "PLAYER_LEFT": {
-          nextState = {
-            ...prev,
-            players: prev.players.filter((p) => p.id !== (payload.userId as string)),
-          };
-          break;
-        }
-
-        case "GAME_STARTED":
-          nextState = { ...prev, phase: "setup" };
-          break;
-
-        case "GAME_START_PLAYING":
-          nextState = {
-            ...prev,
-            phase: "playing",
-            currentTurnId: payload.currentTurnId as string,
-          };
-          break;
-
-        case "NUMBER_CALLED": {
-          const number = payload.number as number;
-          const nextTurnId = payload.nextTurnId as string;
-          const calledNumbers = [...prev.calledNumbers, number];
-          const calledSet = new Set(calledNumbers);
-          const strikes = detectStrikes(prev.myGrid, calledSet);
-          const players = prev.players.map((p) =>
-            p.id === userId ? { ...p, strikeCount: strikes } : p
-          );
-          nextState = { ...prev, calledNumbers, players, currentTurnId: nextTurnId };
-          break;
-        }
-
-        case "STRIKE": {
-          const players = prev.players.map((p) =>
-            p.id === (payload.userId as string)
-              ? { ...p, strikeCount: payload.strikeCount as number }
-              : p
-          );
-          nextState = { ...prev, players };
-          break;
-        }
-
-        case "PLAYER_WON": {
-          const winnerId = payload.winnerId as string;
-          const winnerPlayer = prev.players.find(p => p.id === winnerId);
-          if (winnerPlayer && !prev.winners.find(w => w.id === winnerId)) {
-            const newWinners = [...prev.winners, winnerPlayer];
-            nextState = { ...prev, winners: newWinners };
-            
-            // Check if game should end
-            if (prev.players.length > 1 && prev.players.length - newWinners.length <= 1) {
-              nextState.phase = "finished";
-              nextState.currentTurnId = null;
-            } else if (prev.players.length === 1 && newWinners.length === 1) {
-              nextState.phase = "finished";
-              nextState.currentTurnId = null;
+          case "PLAYER_JOINED": {
+            if (payload.joining) {
+              const joiningId = payload.userId as string;
+              if (prevReactState.players.find((p) => p.id === joiningId)) break;
+              
+              const newPlayer: Player = {
+                id: joiningId,
+                name: payload.userName as string,
+                isComputer: false,
+                isReady: false,
+                strikeCount: 0,
+              };
+              const newPlayers = [...prevReactState.players, newPlayer];
+              nextState = { ...prevReactState, players: newPlayers };
+              break;
+            } else {
+              nextState = { ...prevReactState, players: payload.players as Player[] };
+              break;
             }
           }
-          break;
+
+          case "PLAYER_LEFT": {
+            nextState = {
+              ...prevReactState,
+              players: prevReactState.players.filter((p) => p.id !== (payload.userId as string)),
+            };
+            break;
+          }
+
+          case "GAME_STARTED":
+            nextState = { ...prevReactState, phase: "setup" };
+            break;
+
+          case "GAME_START_PLAYING":
+            nextState = {
+              ...prevReactState,
+              phase: "playing",
+              currentTurnId: payload.currentTurnId as string,
+            };
+            break;
+
+          case "NUMBER_CALLED": {
+            const number = payload.number as number;
+            const nextTurnId = payload.nextTurnId as string;
+            const calledNumbers = [...prevReactState.calledNumbers, number];
+            const calledSet = new Set(calledNumbers);
+            const players = prevReactState.players.map((p) => {
+              const grid = gridsRef.current[p.id];
+              if (grid) {
+                const strikes = detectStrikes(grid, calledSet);
+                return { ...p, strikeCount: strikes };
+              }
+              return p;
+            });
+            nextState = { ...prevReactState, calledNumbers, players, currentTurnId: nextTurnId };
+            break;
+          }
+
+          case "STRIKE": {
+            const players = prevReactState.players.map((p) =>
+              p.id === (payload.userId as string)
+                ? { ...p, strikeCount: payload.strikeCount as number }
+                : p
+            );
+            nextState = { ...prevReactState, players };
+            break;
+          }
+
+          case "PLAYER_WON": {
+            const winnerId = payload.winnerId as string;
+            const winnerPlayer = prevReactState.players.find(p => p.id === winnerId);
+            if (winnerPlayer && !prevReactState.winners.find(w => w.id === winnerId)) {
+              const newWinners = [...prevReactState.winners, winnerPlayer];
+              nextState = { ...prevReactState, winners: newWinners };
+              
+              if (prevReactState.players.length > 1 && prevReactState.players.length - newWinners.length <= 1) {
+                nextState.phase = "finished";
+                nextState.currentTurnId = null;
+              } else if (prevReactState.players.length === 1 && newWinners.length === 1) {
+                nextState.phase = "finished";
+                nextState.currentTurnId = null;
+              }
+
+              if (nextState.phase === "finished" && userId && userId !== "computer") {
+                const didWin = newWinners.some(w => w.id === userId);
+                insforge.database.from("leaderboard").select("*").eq("user_id", userId).single().then(async ({ data }: any) => {
+                  if (data) {
+                    await insforge.database.from("leaderboard").update({
+                      user_name: userName,
+                      wins: didWin ? data.wins + 1 : data.wins,
+                      losses: didWin ? data.losses : data.losses + 1
+                    }).eq("user_id", userId);
+                  } else {
+                    await insforge.database.from("leaderboard").insert({
+                      user_id: userId,
+                      user_name: userName,
+                      wins: didWin ? 1 : 0,
+                      losses: didWin ? 0 : 1
+                    });
+                  }
+                });
+              }
+            }
+            break;
+          }
+
+          case "GAME_OVER": {
+            nextState = { ...prevReactState, phase: "finished", currentTurnId: null };
+            break;
+          }
+
+          case "GAME_OVER_GRIDS": {
+            const grids = payload.grids as Record<string, number[][]>;
+            nextState = {
+              ...prevReactState,
+              opponentGrids: { ...(prevReactState.opponentGrids || {}), ...grids }
+            };
+            break;
+          }
+
+          case "ERROR":
+            console.error("[Game] server error:", payload.message);
+            break;
+
+          case "DIFFICULTY_CHANGED":
+            nextState = { ...prevReactState, difficulty: payload.difficulty as Difficulty };
+            break;
         }
 
-        case "GAME_OVER": {
-          nextState = { ...prev, phase: "finished", currentTurnId: null };
-          break;
-        }
-
-        case "ERROR":
-          console.error("[Game] server error:", payload.message);
-          break;
-      }
-
-      setState(nextState);
+        // Update stateRef immediately so subsequent sync calls within the same tick see it
+        stateRef.current = nextState;
+        return nextState;
+      });
 
       // If we are the host and a new player joined, broadcast the updated full player list
-      if (event === "PLAYER_JOINED" && payload.joining && prev.players[0]?.id === userId) {
+      // We read from stateRef because the state has been updated synchronously above
+      if (event === "PLAYER_JOINED" && payload.joining && stateRef.current.players[0]?.id === userId) {
         const publishFn = publishRef.current;
         if (publishFn) {
-          await publishFn("PLAYER_JOINED", { players: nextState.players });
+          await publishFn("PLAYER_JOINED", { players: stateRef.current.players });
+        }
+      }
+
+      // If the game just finished (or someone won ending the game), broadcast our grid
+      if ((event === "PLAYER_WON" || event === "GAME_OVER") && stateRef.current.phase === "finished") {
+        const publishFn = publishRef.current;
+        if (publishFn) {
+          await publishFn("GAME_OVER_GRIDS", { grids: gridsRef.current });
         }
       }
     },
     [userId]
   );
 
-  const { publish } = useRealtime({
+  const { publish: remotePublish } = useRealtime({
     roomCode: activeRoomCode,
     onEvent: handleEvent,
-    enabled: !!userId,
+    enabled: !!userId && !isLocalGame.current,
   });
+
+  const publish = useCallback(
+    async (event: string, payload: Record<string, unknown>, overrideChannel?: string) => {
+      if (isLocalGame.current) {
+        handleEvent(event, payload);
+      } else {
+        await remotePublish(event, payload, overrideChannel);
+      }
+    },
+    [handleEvent, remotePublish]
+  );
 
   const publishRef = useRef(publish);
   publishRef.current = publish;
-
-  // Store grids for computer + self (needed for strike evaluation)
-  const gridsRef = useRef<Record<string, number[][]>>({});
 
   // ── actions ───────────────────────────────────────────────────────────────
 
   const createRoom = useCallback(
     async (vsComputer: boolean) => {
-      const roomCode = randomRoomCode();
+      if (vsComputer) {
+        isLocalGame.current = true;
+      }
+      const roomCode = vsComputer ? "LOCAL" : randomRoomCode();
       const channel = `bingo:${roomCode}`;
       setActiveRoomCode(roomCode);
       setState((prev) => ({ ...prev, roomCode }));
@@ -283,12 +416,12 @@ export function useGame(userId: string, userName: string) {
   const callNumber = useCallback(
     async (n: number) => {
       const cur = stateRef.current;
-      if (cur.phase !== "playing" || cur.winner) return;
+      if (cur.phase !== "playing") return;
       if (cur.currentTurnId !== userId) return;
       if (cur.calledNumbers.includes(n)) return;
 
       const players = cur.players;
-      let currentIndex = players.findIndex((p) => p.id === cur.currentTurnId);
+      const currentIndex = players.findIndex((p) => p.id === cur.currentTurnId);
       let nextIndex = currentIndex;
       let attempts = 0;
       do {
@@ -303,42 +436,30 @@ export function useGame(userId: string, userName: string) {
         nextTurnId,
       });
 
-      // Evaluate self strikes
-      const newCalled = [...cur.calledNumbers, n];
-      const calledSet = new Set(newCalled);
-
-      // Each player evaluates and broadcasts their own strikes
-      if (gridsRef.current[userId]) {
-        const strikes = detectStrikes(gridsRef.current[userId], calledSet);
-        const myPlayer = players.find((p) => p.id === userId);
-        if (myPlayer && strikes !== myPlayer.strikeCount) {
-          await publish("STRIKE", {
-            userId,
-            strikeCount: strikes,
-            line: [],
-          });
-          if (strikes >= 5 && !cur.winners.find(w => w.id === userId)) {
-            await publish("PLAYER_WON", { winnerId: userId, winnerName: userName });
-            // Let the event handler handle GAME_OVER state transitions
-          }
-        }
-      }
-
       // Computer's turn
       const nextPlayer = players[nextIndex];
       if (nextPlayer?.isComputer) {
         setTimeout(async () => {
           const latestState = stateRef.current;
-          if (latestState.winner || latestState.currentTurnId !== "computer") return;
+          if (latestState.phase !== "playing" || latestState.currentTurnId !== "computer") return;
 
           const usedNumbers = new Set(latestState.calledNumbers);
-          let num: number;
-          do {
-            num = Math.floor(Math.random() * 25) + 1;
-          } while (usedNumbers.has(num));
+          const opponentGrid = latestState.players.find(p => !p.isComputer) ? gridsRef.current[latestState.players.find(p => !p.isComputer)!.id] : undefined;
+          
+          const num = getBestComputerMove(
+            gridsRef.current["computer"]!,
+            opponentGrid,
+            latestState.calledNumbers,
+            latestState.difficulty
+          );
+
+          if (num === -1) {
+             console.warn("No available moves for computer.");
+             return;
+          }
 
           const compPlayers = latestState.players;
-          let compIndex = compPlayers.findIndex((p) => p.id === "computer");
+          const compIndex = compPlayers.findIndex((p) => p.id === "computer");
           let compNextIndex = compIndex;
           let compAttempts = 0;
           do {
@@ -352,28 +473,15 @@ export function useGame(userId: string, userName: string) {
             calledBy: "computer",
             nextTurnId: compNextTurnId,
           });
-
-          // Evaluate computer strikes
-          const compCalled = new Set([...latestState.calledNumbers, num]);
-          if (gridsRef.current["computer"]) {
-            const compStrikes = detectStrikes(gridsRef.current["computer"], compCalled);
-            const compPlayer = compPlayers.find((p) => p.isComputer);
-            if (compPlayer && compStrikes !== compPlayer.strikeCount) {
-              await publish("STRIKE", {
-                userId: "computer",
-                strikeCount: compStrikes,
-                line: [],
-              });
-              if (compStrikes >= 5 && !latestState.winners.find(w => w.id === "computer")) {
-                await publish("PLAYER_WON", { winnerId: "computer", winnerName: "Computer" });
-              }
-            }
-          }
-        }, 1500);
+        }, Math.random() * 1000 + 1000);
       }
     },
     [userId, userName, publish]
   );
+
+  const setDifficulty = useCallback(async (difficulty: Difficulty) => {
+    await publish("DIFFICULTY_CHANGED", { difficulty });
+  }, [publish]);
 
   const actions: GameActions = {
     createRoom,
@@ -381,6 +489,7 @@ export function useGame(userId: string, userName: string) {
     ready,
     submitGrid,
     callNumber,
+    setDifficulty,
   };
 
   const setMyGrid = useCallback((grid: number[][]) => {

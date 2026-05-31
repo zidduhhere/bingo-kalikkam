@@ -9,14 +9,14 @@ export default function SignInPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6 bg-transparent">
-      <div className="w-full max-w-sm space-y-8 bg-white/60 backdrop-blur-sm p-8 shadow-xl border-2 border-blue-900/20 transform rotate-1 [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]">
+      <div className="w-full max-w-sm space-y-8 bg-white/60 backdrop-blur-sm p-8 shadow-xl border-2 border-blue-900/20 transform rotate-1 rounded-[255px_15px_225px_15px/15px_225px_15px_255px]">
         <div className="text-center space-y-2">
-          <h1 className="text-6xl font-black tracking-tight text-blue-900 drop-shadow-sm rotate-[-2deg]">Bingo</h1>
-          <p className="text-2xl text-blue-800/80 font-medium rotate-[1deg]">Sign in to play</p>
+          <h1 className="text-6xl font-black tracking-tight text-blue-900 drop-shadow-sm -rotate-2">Bingo</h1>
+          <p className="text-2xl text-blue-800/80 font-medium rotate-1">Sign in to play</p>
         </div>
         <button
           onClick={handleSignIn}
-          className="flex w-full items-center justify-center gap-3 border-2 border-blue-900/40 bg-transparent px-4 py-3 text-2xl font-medium text-blue-900 transition-colors hover:bg-blue-900/5 [border-radius:15px_255px_15px_225px/255px_15px_225px_15px]"
+          className="flex w-full items-center justify-center gap-3 border-2 border-blue-900/40 bg-transparent px-4 py-3 text-2xl font-medium text-blue-900 transition-colors hover:bg-blue-900/5 rounded-[15px_255px_15px_225px/255px_15px_225px_15px]"
         >
           <svg className="h-6 w-6 mix-blend-multiply" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

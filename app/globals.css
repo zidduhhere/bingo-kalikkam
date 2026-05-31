@@ -16,11 +16,6 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   font-size: 1.5rem;
-  
-  /* Horizontal blue lines for notebook paper */
-  background-image: linear-gradient(rgba(100, 150, 200, 0.3) 1px, transparent 1px);
-  background-size: 100% 2.5rem; /* Line spacing */
-  background-position: 0 3.5rem; /* Start offset */
 }
 
 /* Ensure text inputs inherit the handwriting font */
