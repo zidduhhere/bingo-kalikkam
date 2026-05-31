@@ -102,8 +102,8 @@ export default function PlayPage() {
           onCellKeyDown={handleCellKeyDown}
           buttonRefs={cellRefs}
         />
-        <div className="flex flex-col gap-2 w-full max-w-xs mt-2">
-          <div className={`text-sm font-semibold text-center mb-1 ${isMyTurn ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-500"}`}>
+        <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
+          <div className={`text-2xl font-bold text-center mb-1 ${isMyTurn ? "text-red-600 animate-pulse" : "text-blue-900/50"}`}>
             {isMyTurn ? "🎯 Your turn!" : "⏳ Waiting for opponent..."}
           </div>
           <div className="flex gap-2">

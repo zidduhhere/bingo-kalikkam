@@ -45,24 +45,25 @@ export default function LobbyPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6 bg-transparent">
-      <div className="bg-white/60 backdrop-blur-sm p-8 rounded-3xl shadow-lg border border-zinc-200/50 text-center max-w-sm rotate-[-1deg]">
-        <h1 className="text-3xl font-bold text-blue-900">Room Lobby</h1>
+      <div className="bg-white/60 backdrop-blur-sm p-8 rounded-3xl shadow-lg border border-zinc-200/50 text-center max-w-sm rotate-[-1deg] [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]">
+        <h1 className="text-4xl font-bold text-blue-900">Room Lobby</h1>
+      </div>
       <RoomCodeBadge code={displayCode} />
       <div className="flex flex-col gap-3 w-full max-w-sm">
-        <h2 className="text-sm font-semibold text-zinc-500">Players ({state.players.length})</h2>
+        <h2 className="text-xl font-semibold text-blue-900/70">Players ({state.players.length})</h2>
         {state.players.length === 0 ? (
-          <div className="flex items-center gap-2 text-zinc-400">
+          <div className="flex items-center gap-2 text-blue-900/50">
             <Spinner />
-            <span className="text-sm">Waiting for players...</span>
+            <span className="text-lg">Waiting for players...</span>
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
             {state.players.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
-                <span className="text-sm font-medium">{p.name}</span>
-                {p.isComputer && <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">CPU</span>}
-                {p.id === userId && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600">You</span>}
-                {isHost && p.id === userId && <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-600">Host</span>}
+              <li key={p.id} className="flex items-center gap-3 rounded-xl border-2 border-blue-900/10 bg-white/40 px-4 py-3 shadow-sm [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]">
+                <span className="text-xl font-medium text-blue-950">{p.name}</span>
+                {p.isComputer && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-600 font-sans">CPU</span>}
+                {p.id === userId && <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-600 font-sans">You</span>}
+                {isHost && p.id === userId && <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-600 font-sans">Host</span>}
               </li>
             ))}
           </ul>
@@ -70,11 +71,11 @@ export default function LobbyPage() {
       </div>
       {state.players.length > 0 && (
         isHost ? (
-          <Button onClick={() => actions.ready()} disabled={state.players.length < 2} className="w-full max-w-sm py-3">
+          <Button onClick={() => actions.ready()} disabled={state.players.length < 2} className="w-full max-w-sm py-3 text-xl">
             Start Game
           </Button>
         ) : (
-          <p className="text-sm text-zinc-400">Waiting for the host to start...</p>
+          <p className="text-lg text-blue-900/60">Waiting for the host to start...</p>
         )
       )}
     </div>

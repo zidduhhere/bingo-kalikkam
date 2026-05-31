@@ -18,7 +18,6 @@ export default function HomePage() {
 
   return (
     <HomeClient
-      userId={user.id}
       userName={user.name ?? user.email ?? "Player"}
       userImage={user.avatar_url}
     />
