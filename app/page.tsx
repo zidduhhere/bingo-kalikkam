@@ -4,7 +4,7 @@ import { HomeClient } from "./home-client";
 
 export default async function HomePage() {
   const session = await auth0.getSession();
-  if (!session?.user) redirect("/api/auth/login");
+  if (!session?.user) redirect("/auth/login");
   return (
     <HomeClient
       userName={session.user.name ?? "Player"}

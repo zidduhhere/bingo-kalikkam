@@ -6,9 +6,8 @@ export default function SignInPage() {
           <h1 className="text-3xl font-bold tracking-tight">🎱 Bingo</h1>
           <p className="mt-2 text-sm text-zinc-500">Sign in to play with friends</p>
         </div>
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
-          href="/api/auth/login"
+          href="/auth/login"
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

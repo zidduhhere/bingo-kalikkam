@@ -32,8 +32,7 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
             {userImage && <img src={userImage} alt="" className="h-8 w-8 rounded-full" />}
             <span className="text-sm font-medium">{userName}</span>
           </div>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/api/auth/logout" className="text-xs text-zinc-400 hover:text-zinc-600">Sign out</a>
+          <a href="/auth/logout" className="text-xs text-zinc-400 hover:text-zinc-600">Sign out</a>
         </div>
         <div className="flex flex-col gap-3">
           <Button onClick={handleCreate} className="w-full py-3 text-base">Create Room</Button>
