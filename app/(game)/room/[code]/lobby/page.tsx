@@ -42,6 +42,14 @@ export default function LobbyPage() {
     if (state.phase === "setup") router.push(`/room/${code}/setup`);
   }, [state.phase, code, router]);
 
+  // Publish PLAYER_LEFT when a non-host navigates away from the lobby
+  useEffect(() => {
+    return () => {
+      actions.leaveRoom();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const isHost = state.players[0]?.id === userId;
   const displayCode = state.roomCode || (isNew ? "..." : code);
 
