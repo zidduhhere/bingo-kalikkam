@@ -231,6 +231,7 @@ export function useGame(userId: string, userName: string) {
 
         case "NUMBER_CALLED": {
           const number = payload.number as number;
+          if (prevState.calledNumbers.includes(number)) break;
           const nextTurnId = payload.nextTurnId as string;
           const calledNumbers = [...prevState.calledNumbers, number];
           const calledSet = new Set(calledNumbers);
@@ -307,6 +308,7 @@ export function useGame(userId: string, userName: string) {
             phase: "setup",
             difficulty: prevState.difficulty,
           };
+          leaderboardWrittenRef.current = false;
           break;
         }
 
@@ -347,9 +349,10 @@ export function useGame(userId: string, userName: string) {
 
   const publish = useCallback(
     async (event: string, payload: Record<string, unknown>, overrideChannel?: string) => {
-      if (isLocalGame.current) {
-        handleEvent(event, payload);
-      } else {
+      // Always apply the event locally so the publisher's own state updates
+      // immediately (InsForge pub/sub does not echo events back to the sender).
+      handleEvent(event, payload);
+      if (!isLocalGame.current) {
         await remotePublish(event, payload, overrideChannel);
       }
     },
@@ -369,7 +372,8 @@ export function useGame(userId: string, userName: string) {
       const roomCode = vsComputer ? "LOCAL" : randomRoomCode();
       const channel = `bingo:${roomCode}`;
       setActiveRoomCode(roomCode);
-      setState((prev) => ({ ...prev, roomCode }));
+      stateRef.current = { ...stateRef.current, roomCode };
+      setState(stateRef.current);
 
       const humanPlayer: Player = {
         id: userId,
@@ -403,7 +407,8 @@ export function useGame(userId: string, userName: string) {
     async (roomCode: string) => {
       const channel = `bingo:${roomCode}`;
       setActiveRoomCode(roomCode);
-      setState((prev) => ({ ...prev, roomCode }));
+      stateRef.current = { ...stateRef.current, roomCode };
+      setState(stateRef.current);
       await publish("PLAYER_JOINED", {
         userId,
         userName,

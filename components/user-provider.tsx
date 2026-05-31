@@ -26,6 +26,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function fetchUser() {
+      // Restore access token from the HTTP-only refresh cookie so the session
+      // survives page reloads without forcing the user to re-authenticate.
+      await insforge.auth.refreshSession().catch(() => {});
       const { data } = await insforge.auth.getCurrentUser();
       if (data?.user) {
         setUser({

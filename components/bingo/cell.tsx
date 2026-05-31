@@ -23,7 +23,8 @@ export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown,
         inputMode="numeric"
         maxLength={2}
         value={value === 0 ? "" : value.toString()}
-        onChange={onChange}
+        onChange={onChange ?? (() => {})}
+        readOnly={!onChange}
         onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLInputElement>}
         onClick={onClick}
         className={cn(
