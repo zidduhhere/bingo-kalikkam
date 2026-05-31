@@ -11,6 +11,7 @@ export default function SetupPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { state, actions, setMyGrid } = useGameContext();
+  const diff = searchParams.get("diff");
   const mode = searchParams.get("mode");
   const hasCreated = useRef(false);
 
@@ -18,8 +19,11 @@ export default function SetupPage() {
     if (code === "local" && mode === "computer" && !state.roomCode && !hasCreated.current) {
       hasCreated.current = true;
       actions.createRoom(true);
+      if (diff === "normal" || diff === "hard") {
+        actions.setDifficulty(diff);
+      }
     }
-  }, [code, mode, state.roomCode, actions]);
+  }, [code, mode, diff, state.roomCode, actions]);
 
   useEffect(() => {
     if (state.phase === "playing") {

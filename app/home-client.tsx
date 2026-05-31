@@ -16,8 +16,10 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
   const [error, setError] = useState("");
   const { lang } = useLanguage();
 
+  const [showDifficulty, setShowDifficulty] = useState(false);
+
   const handleCreate = () => router.push("/room/new/lobby?mode=multiplayer");
-  const handleVsComputer = () => router.push("/room/local/setup?mode=computer");
+  const handleVsComputer = (diff: "normal" | "hard") => router.push(`/room/local/setup?mode=computer&diff=${diff}`);
   const handleJoin = async () => {
     const code = joinCode.trim().toUpperCase();
     if (code.length !== 6) {
@@ -86,15 +88,34 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
           >
             {lang === "EN" ? "Create Room" : "വാ നമുക്ക് റൂം എടുക്കാം"}
           </Button>
-          <Button
-            onClick={handleVsComputer}
-            variant="ghost"
-            className="w-full py-5 h-auto text-3xl font-(family-name:--font-caveat) border-2 border-blue-900/40 text-blue-900 bg-white/20 rounded-[15px_225px_15px_255px/255px_15px_225px_15px] hover:bg-blue-900/10 shadow-sm transition-transform active:scale-95"
-          >
-            {lang === "EN"
-              ? "Play vs Computer"
-              : "യന്ത്രവുമായിട്ടുള്ള മൽപ്പിടുത്തം"}
-          </Button>
+          {!showDifficulty ? (
+            <Button
+              onClick={() => setShowDifficulty(true)}
+              variant="ghost"
+              className="w-full py-5 h-auto text-3xl font-(family-name:--font-caveat) border-2 border-blue-900/40 text-blue-900 bg-white/20 rounded-[15px_225px_15px_255px/255px_15px_225px_15px] hover:bg-blue-900/10 shadow-sm transition-transform active:scale-95"
+            >
+              {lang === "EN"
+                ? "Play vs Computer"
+                : "യന്ത്രവുമായിട്ടുള്ള മൽപ്പിടുത്തം"}
+            </Button>
+          ) : (
+            <div className="flex gap-3">
+              <Button
+                onClick={() => handleVsComputer("normal")}
+                variant="ghost"
+                className="flex-1 py-5 h-auto text-3xl font-(family-name:--font-caveat) border-2 border-green-600/40 text-green-700 bg-green-50/50 rounded-[15px_225px_15px_255px/255px_15px_225px_15px] hover:bg-green-100 shadow-sm transition-transform active:scale-95"
+              >
+                {lang === "EN" ? "Normal" : "സാധാരണ"}
+              </Button>
+              <Button
+                onClick={() => handleVsComputer("hard")}
+                variant="ghost"
+                className="flex-1 py-5 h-auto text-3xl font-(family-name:--font-caveat) border-2 border-red-600/40 text-red-700 bg-red-50/50 rounded-[15px_225px_15px_255px/255px_15px_225px_15px] hover:bg-red-100 shadow-sm transition-transform active:scale-95"
+              >
+                {lang === "EN" ? "Hard" : "കഠിനം"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Join Section */}

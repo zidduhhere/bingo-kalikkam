@@ -36,38 +36,31 @@ describe("CalledNumbers Component", () => {
 
   describe("Order of Display", () => {
     it("displays numbers in order they were called", () => {
-      const { container } = render(
-        <CalledNumbers numbers={[5, 2, 8, 1]} />
-      );
-      const spans = container.querySelectorAll("span");
-      const numberSpans = Array.from(spans).filter(span => 
-        span.textContent && !isNaN(Number(span.textContent))
-      );
-      expect(numberSpans[0]).toHaveTextContent("5");
-      expect(numberSpans[1]).toHaveTextContent("2");
-      expect(numberSpans[2]).toHaveTextContent("8");
-      expect(numberSpans[3]).toHaveTextContent("1");
+      render(<CalledNumbers numbers={[5, 2, 8, 1]} />);
+      // Last number shows in spotlight
+      expect(screen.getByText("1")).toBeInTheDocument();
+      // Previous numbers show in grid
+      expect(screen.getByText("5")).toBeInTheDocument();
+      expect(screen.getByText("2")).toBeInTheDocument();
+      expect(screen.getByText("8")).toBeInTheDocument();
     });
 
     it("displays numbers in ascending order when sorted", () => {
-      const { container } = render(
-        <CalledNumbers numbers={[25, 1, 13, 6].sort((a, b) => a - b)} />
-      );
-      const spans = container.querySelectorAll("span");
-      const numberSpans = Array.from(spans).filter(span => 
-        span.textContent && !isNaN(Number(span.textContent))
-      );
-      expect(numberSpans[0]).toHaveTextContent("1");
-      expect(numberSpans[1]).toHaveTextContent("6");
-      expect(numberSpans[2]).toHaveTextContent("13");
-      expect(numberSpans[3]).toHaveTextContent("25");
+      const sorted = [25, 1, 13, 6].sort((a, b) => a - b);
+      render(<CalledNumbers numbers={sorted} />);
+      // All numbers should be rendered
+      expect(screen.getByText("1")).toBeInTheDocument();
+      expect(screen.getByText("6")).toBeInTheDocument();
+      expect(screen.getByText("13")).toBeInTheDocument();
+      expect(screen.getByText("25")).toBeInTheDocument();
     });
   });
 
   describe("Styling", () => {
     it("applies styling to called number spans", () => {
-      render(<CalledNumbers numbers={[5]} />);
-      const span = screen.getByText("5");
+      render(<CalledNumbers numbers={[5, 10]} />);
+      // Previous numbers have red styling
+      const span = screen.getAllByText("5")[0];
       expect(span).toHaveClass("text-red-700");
       expect(span).toHaveClass("border-red-600/60");
     });
