@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a multiplayer Bingo game frontend in Next.js with OAuth auth, room codes, WebSocket-driven real-time play, and a computer-opponent mode.
+**Goal:** Build a multiplayer Bingo game frontend in Next.js with Auth0 (Google) OAuth, room codes, WebSocket-driven real-time play, and a computer-opponent mode.
 
-**Architecture:** App Router (Next.js 16), Auth.js v5 for Google/GitHub OAuth, native browser WebSocket connecting to a separate backend server. Game state lives in a React context fed by WebSocket events. All WebSocket message shapes are typed via shared TypeScript interfaces so the frontend and backend team share a contract.
+**Architecture:** App Router (Next.js 16), Auth0 (`@auth0/nextjs-auth0`) for Google OAuth, native browser WebSocket connecting to a separate backend server. Game state lives in a React context fed by WebSocket events. All WebSocket message shapes are typed via shared TypeScript interfaces so the frontend and backend team share a contract.
 
-**Tech Stack:** Next.js 16 (App Router), TypeScript, Tailwind CSS v4, Auth.js v5 (`next-auth@beta`), native WebSocket API, React Context.
+**Tech Stack:** Next.js 16 (App Router), TypeScript, Tailwind CSS v4, Auth0 (`@auth0/nextjs-auth0`), native WebSocket API, React Context.
 
 ---
 
@@ -14,22 +14,23 @@
 
 ```
 app/
-  layout.tsx                          — root layout (SessionProvider wrapper)
+  layout.tsx                          — root layout (Auth0 UserProvider wrapper)
   page.tsx                            — home/landing: create room, join room, vs computer
-  (auth)/
-    sign-in/page.tsx                  — OAuth sign-in page
+  home-client.tsx                     — client component for home page interactions
+  api/
+    auth/
+      [auth0]/route.ts                — Auth0 catch-all API route
   (game)/
+    layout.tsx                        — game layout: auth guard + WebSocket provider
     room/[code]/
       lobby/page.tsx                  — waiting room (show room code, players list)
       setup/page.tsx                  — arrange your bingo numbers on the grid
       play/page.tsx                   — live game board
-    layout.tsx                        — game layout: WebSocket provider wrapping all game routes
 
 lib/
-  auth.ts                             — Auth.js config (providers, callbacks)
   ws-types.ts                         — all WebSocket message/event TypeScript types
   bingo-logic.ts                      — pure functions: detect strikes, check win
-  utils.ts                            — misc helpers (shuffle, range)
+  utils.ts                            — misc helpers (shuffle, range, cn)
 
 hooks/
   use-websocket.ts                    — manages WS connection lifecycle, reconnect, send
@@ -39,6 +40,7 @@ contexts/
   game-context.tsx                    — React context wrapping use-game, provided in game layout
 
 components/
+  user-provider.tsx                   — client wrapper for Auth0 UserProvider
   bingo/
     grid.tsx                          — renders a 5×5 bingo grid (used in setup and play)
     cell.tsx                          — single grid cell (called/uncalled/mine states)
@@ -50,9 +52,6 @@ components/
     input.tsx                         — shared text input
     room-code-badge.tsx               — large room code display with copy button
     spinner.tsx                       — loading spinner
-
-app/api/auth/[...nextauth]/route.ts  — Auth.js catch-all API route
-middleware.ts                         — protect /room routes; redirect unauthenticated users
 ```
 
 ---
@@ -62,116 +61,76 @@ middleware.ts                         — protect /room routes; redirect unauthe
 **Files:**
 - Modify: `package.json`
 
-- [ ] **Step 1: Install Auth.js v5 beta**
+- [ ] **Step 1: Install Auth0 SDK and utilities**
 
 ```bash
-cd /path/to/project
-npm install next-auth@beta
+npm install @auth0/nextjs-auth0 clsx tailwind-merge
 ```
 
-Expected output: `added N packages` with `next-auth@5.x.x` listed.
+Expected output: packages added with no peer dependency errors.
 
-- [ ] **Step 2: Verify install**
+- [ ] **Step 2: Verify installs**
 
 ```bash
-npm ls next-auth
+npm ls @auth0/nextjs-auth0 clsx tailwind-merge
 ```
 
-Expected: shows `next-auth@5.x.x` with no peer dependency errors.
+Expected: all three listed at their installed versions with no unmet peer deps.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add package.json package-lock.json
-git commit -m "chore: add next-auth v5 beta"
+git commit -m "chore: add @auth0/nextjs-auth0, clsx, tailwind-merge"
 ```
 
 ---
 
-## Task 2: Auth.js config + API route
+## Task 2: Auth0 environment variables and API route
 
 **Files:**
-- Create: `lib/auth.ts`
-- Create: `app/api/auth/[...nextauth]/route.ts`
+- Create: `.env.local` (not committed)
+- Create: `app/api/auth/[auth0]/route.ts`
 
-Auth.js v5 uses a single `auth.ts` config file. Google and GitHub providers require `CLIENT_ID` / `CLIENT_SECRET` env vars. The route just re-exports `handlers` from the config.
+Auth0 SDK reads `AUTH0_SECRET`, `AUTH0_BASE_URL`, `AUTH0_ISSUER_BASE_URL`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` from the environment. The catch-all route handles all `/api/auth/*` requests (login, logout, callback, me).
 
-- [ ] **Step 1: Create `lib/auth.ts`**
-
-```typescript
-import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
-import GitHub from "next-auth/providers/github";
-
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
-  ],
-  pages: {
-    signIn: "/sign-in",
-  },
-  callbacks: {
-    session({ session, token }) {
-      if (token.sub) session.user.id = token.sub;
-      return session;
-    },
-  },
-});
-```
-
-- [ ] **Step 2: Create `app/api/auth/[...nextauth]/route.ts`**
-
-```typescript
-import { handlers } from "@/lib/auth";
-export const { GET, POST } = handlers;
-```
-
-- [ ] **Step 3: Add env vars to `.env.local`**
-
-Create `.env.local` in the project root:
+- [ ] **Step 1: Create `.env.local`**
 
 ```
-NEXTAUTH_SECRET=replace-with-random-32-char-secret
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
+AUTH0_SECRET=use-openssl-rand-hex-32-to-generate
+AUTH0_BASE_URL=http://localhost:3000
+AUTH0_ISSUER_BASE_URL=https://YOUR_AUTH0_DOMAIN.auth0.com
+AUTH0_CLIENT_ID=your-auth0-client-id
+AUTH0_CLIENT_SECRET=your-auth0-client-secret
 NEXT_PUBLIC_WS_URL=ws://localhost:8080
 ```
 
-> Note: `.env.local` must NOT be committed. Verify it is in `.gitignore`.
+> Note: In the Auth0 dashboard, create a Regular Web Application, enable Google social connection, and set Allowed Callback URL to `http://localhost:3000/api/auth/callback` and Allowed Logout URL to `http://localhost:3000`.
 
-- [ ] **Step 4: Extend session type so `session.user.id` is typed**
-
-Create `types/next-auth.d.ts`:
-
-```typescript
-import "next-auth";
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    };
-  }
-}
-```
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 2: Verify `.env.local` is in `.gitignore`**
 
 ```bash
-git add lib/auth.ts app/api/auth types/next-auth.d.ts
-git commit -m "feat: add Auth.js v5 config with Google and GitHub providers"
+grep ".env.local" .gitignore
+```
+
+Expected: `.env.local` appears in the output. If not, add it:
+```bash
+echo ".env.local" >> .gitignore
+```
+
+- [ ] **Step 3: Create `app/api/auth/[auth0]/route.ts`**
+
+```typescript
+import { handleAuth } from "@auth0/nextjs-auth0";
+
+export const GET = handleAuth();
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add app/api/auth .gitignore
+git commit -m "feat: add Auth0 catch-all API route"
 ```
 
 ---
@@ -181,20 +140,14 @@ git commit -m "feat: add Auth.js v5 config with Google and GitHub providers"
 **Files:**
 - Create: `middleware.ts`
 
+Auth0 SDK provides `withMiddlewareAuthRequired` to guard routes. Unauthenticated users hitting `/room/*` are redirected to Auth0's login page.
+
 - [ ] **Step 1: Create `middleware.ts`**
 
 ```typescript
-import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { withMiddlewareAuthRequired } from "@auth0/nextjs-auth0/edge";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const isOnGameRoute = req.nextUrl.pathname.startsWith("/room");
-
-  if (isOnGameRoute && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/sign-in", req.url));
-  }
-});
+export default withMiddlewareAuthRequired();
 
 export const config = {
   matcher: ["/room/:path*"],
@@ -205,21 +158,103 @@ export const config = {
 
 ```bash
 git add middleware.ts
-git commit -m "feat: protect /room routes with auth middleware"
+git commit -m "feat: protect /room routes with Auth0 middleware"
 ```
 
 ---
 
-## Task 4: Sign-in page
+## Task 4: Root layout with Auth0 UserProvider
 
 **Files:**
-- Create: `app/(auth)/sign-in/page.tsx`
-- Create: `components/ui/button.tsx`
+- Create: `components/user-provider.tsx`
+- Modify: `app/layout.tsx`
 
-- [ ] **Step 1: Create shared button component**
+Auth0's `UserProvider` must be a client component. We wrap it so the server-side root layout stays a Server Component.
+
+- [ ] **Step 1: Create `components/user-provider.tsx`**
 
 ```typescript
-// components/ui/button.tsx
+"use client";
+
+import { UserProvider as Auth0UserProvider } from "@auth0/nextjs-auth0/client";
+
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  return <Auth0UserProvider>{children}</Auth0UserProvider>;
+}
+```
+
+- [ ] **Step 2: Update `app/layout.tsx`**
+
+```typescript
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { UserProvider } from "@/components/user-provider";
+
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Bingo",
+  description: "Multiplayer bingo game",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        <UserProvider>{children}</UserProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add components/user-provider.tsx app/layout.tsx
+git commit -m "feat: wrap root layout with Auth0 UserProvider"
+```
+
+---
+
+## Task 5: Sign-in page
+
+**Files:**
+- Create: `app/sign-in/page.tsx`
+- Create: `components/ui/button.tsx`
+- Create: `lib/utils.ts`
+
+Auth0 login is triggered by redirecting to `/api/auth/login`. No server action needed — just a regular anchor/button.
+
+- [ ] **Step 1: Create `lib/utils.ts`**
+
+```typescript
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function range(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => i + 1);
+}
+
+export function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+```
+
+- [ ] **Step 2: Create `components/ui/button.tsx`**
+
+```typescript
 import { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
@@ -244,43 +279,9 @@ export function Button({ variant = "primary", className, children, ...props }: B
 }
 ```
 
-- [ ] **Step 2: Create `lib/utils.ts`**
+- [ ] **Step 3: Create `app/sign-in/page.tsx`**
 
 ```typescript
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-export function range(n: number): number[] {
-  return Array.from({ length: n }, (_, i) => i + 1);
-}
-
-export function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-```
-
-- [ ] **Step 3: Install clsx and tailwind-merge**
-
-```bash
-npm install clsx tailwind-merge
-```
-
-- [ ] **Step 4: Create sign-in page**
-
-```typescript
-// app/(auth)/sign-in/page.tsx
-import { signIn } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
-
 export default function SignInPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
@@ -290,106 +291,29 @@ export default function SignInPage() {
           <p className="mt-2 text-sm text-zinc-500">Sign in to play with friends</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <form
-            action={async () => {
-              "use server";
-              await signIn("google", { redirectTo: "/" });
-            }}
-          >
-            <Button type="submit" variant="ghost" className="w-full">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              Continue with Google
-            </Button>
-          </form>
-
-          <form
-            action={async () => {
-              "use server";
-              await signIn("github", { redirectTo: "/" });
-            }}
-          >
-            <Button type="submit" variant="ghost" className="w-full">
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-              </svg>
-              Continue with GitHub
-            </Button>
-          </form>
-        </div>
+        <a
+          href="/api/auth/login"
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </a>
       </div>
     </div>
   );
 }
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add app/\(auth\) components/ui/button.tsx lib/utils.ts
-git commit -m "feat: add sign-in page with Google and GitHub OAuth"
-```
-
----
-
-## Task 5: Update root layout with SessionProvider
-
-**Files:**
-- Modify: `app/layout.tsx`
-- Create: `components/session-provider.tsx`
-
-Auth.js v5 requires a client-side `SessionProvider` wrapper for `useSession` to work in client components.
-
-- [ ] **Step 1: Create client-side SessionProvider wrapper**
-
-```typescript
-// components/session-provider.tsx
-"use client";
-
-import { SessionProvider as NextAuthSessionProvider } from "next-auth/react";
-
-export function SessionProvider({ children }: { children: React.ReactNode }) {
-  return <NextAuthSessionProvider>{children}</NextAuthSessionProvider>;
-}
-```
-
-- [ ] **Step 2: Update `app/layout.tsx`**
-
-```typescript
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { SessionProvider } from "@/components/session-provider";
-
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "Bingo",
-  description: "Multiplayer bingo game",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
-        <SessionProvider>{children}</SessionProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/layout.tsx components/session-provider.tsx
-git commit -m "feat: wrap root layout with SessionProvider"
+git add app/sign-in lib/utils.ts components/ui/button.tsx
+git commit -m "feat: add sign-in page with Google OAuth via Auth0"
 ```
 
 ---
@@ -451,19 +375,38 @@ git commit -m "feat: define WebSocket message types for client/server contract"
 
 ---
 
-## Task 7: Pure bingo logic utilities
+## Task 7: Pure bingo logic utilities + tests
 
 **Files:**
 - Create: `lib/bingo-logic.ts`
 - Create: `lib/bingo-logic.test.ts`
+- Create: `jest.config.js`
 
-These are pure functions with no side effects — easiest to test.
+- [ ] **Step 1: Install test dependencies**
 
-- [ ] **Step 1: Write failing tests**
+```bash
+npm install -D jest ts-jest @types/jest
+```
+
+- [ ] **Step 2: Create `jest.config.js`**
+
+```javascript
+module.exports = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
+};
+```
+
+Add to `package.json` `"scripts"`:
+```json
+"test": "jest"
+```
+
+- [ ] **Step 3: Write failing tests — `lib/bingo-logic.test.ts`**
 
 ```typescript
-// lib/bingo-logic.test.ts
-import { detectStrikes, isWinner, buildEmptyGrid } from "./bingo-logic";
+import { buildEmptyGrid, detectStrikes, isWinner } from "./bingo-logic";
 
 describe("buildEmptyGrid", () => {
   it("returns a 5×5 grid of zeros", () => {
@@ -475,120 +418,69 @@ describe("buildEmptyGrid", () => {
 });
 
 describe("detectStrikes", () => {
+  const grid = [
+    [1,  2,  3,  4,  5],
+    [6,  7,  8,  9,  10],
+    [11, 12, 13, 14, 15],
+    [16, 17, 18, 19, 20],
+    [21, 22, 23, 24, 25],
+  ];
+
   it("detects a full row as a strike", () => {
-    const grid = [
-      [1, 2, 3, 4, 5],
-      [6, 7, 8, 9, 10],
-      [11,12,13,14,15],
-      [16,17,18,19,20],
-      [21,22,23,24,25],
-    ];
-    const called = new Set([1, 2, 3, 4, 5]);
-    expect(detectStrikes(grid, called)).toBe(1);
+    expect(detectStrikes(grid, new Set([1, 2, 3, 4, 5]))).toBe(1);
   });
 
   it("detects a full column as a strike", () => {
-    const grid = [
-      [1, 2, 3, 4, 5],
-      [6, 7, 8, 9, 10],
-      [11,12,13,14,15],
-      [16,17,18,19,20],
-      [21,22,23,24,25],
-    ];
-    const called = new Set([1, 6, 11, 16, 21]);
-    expect(detectStrikes(grid, called)).toBe(1);
+    expect(detectStrikes(grid, new Set([1, 6, 11, 16, 21]))).toBe(1);
   });
 
-  it("detects a main diagonal as a strike", () => {
-    const grid = [
-      [1, 2, 3, 4, 5],
-      [6, 7, 8, 9, 10],
-      [11,12,13,14,15],
-      [16,17,18,19,20],
-      [21,22,23,24,25],
-    ];
-    const called = new Set([1, 7, 13, 19, 25]);
-    expect(detectStrikes(grid, called)).toBe(1);
+  it("detects the main diagonal as a strike", () => {
+    expect(detectStrikes(grid, new Set([1, 7, 13, 19, 25]))).toBe(1);
   });
 
-  it("returns 0 when no lines complete", () => {
-    const grid = [
-      [1, 2, 3, 4, 5],
-      [6, 7, 8, 9, 10],
-      [11,12,13,14,15],
-      [16,17,18,19,20],
-      [21,22,23,24,25],
-    ];
-    const called = new Set([1, 2, 3, 4]); // row not complete
-    expect(detectStrikes(grid, called)).toBe(0);
+  it("detects the anti-diagonal as a strike", () => {
+    expect(detectStrikes(grid, new Set([5, 9, 13, 17, 21]))).toBe(1);
+  });
+
+  it("returns 0 when no line is complete", () => {
+    expect(detectStrikes(grid, new Set([1, 2, 3, 4]))).toBe(0);
   });
 });
 
 describe("isWinner", () => {
-  it("returns true when strikeCount is 5", () => {
-    expect(isWinner(5)).toBe(true);
-  });
-
-  it("returns false when strikeCount is less than 5", () => {
-    expect(isWinner(4)).toBe(false);
-  });
+  it("returns true at 5 strikes", () => expect(isWinner(5)).toBe(true));
+  it("returns false below 5 strikes", () => expect(isWinner(4)).toBe(false));
 });
 ```
 
-- [ ] **Step 2: Run tests — verify they fail**
+- [ ] **Step 4: Run — verify FAIL**
 
-Install jest + ts-jest first:
-```bash
-npm install -D jest ts-jest @types/jest
-```
-
-Add to `package.json` scripts:
-```json
-"test": "jest"
-```
-
-Add `jest.config.js`:
-```javascript
-module.exports = {
-  preset: "ts-jest",
-  testEnvironment: "node",
-  moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
-};
-```
-
-Run:
 ```bash
 npm test -- lib/bingo-logic.test.ts
 ```
 
-Expected: FAIL — module not found.
+Expected: FAIL — `Cannot find module './bingo-logic'`.
 
-- [ ] **Step 3: Implement `lib/bingo-logic.ts`**
+- [ ] **Step 5: Implement `lib/bingo-logic.ts`**
 
 ```typescript
 export function buildEmptyGrid(): number[][] {
   return Array.from({ length: 5 }, () => Array(5).fill(0));
 }
 
-// Returns the number of completed lines (rows + cols + 2 diagonals)
 export function detectStrikes(grid: number[][], called: Set<number>): number {
   const SIZE = 5;
   let strikes = 0;
 
-  // Rows
   for (let r = 0; r < SIZE; r++) {
     if (grid[r].every((n) => called.has(n))) strikes++;
   }
 
-  // Columns
   for (let c = 0; c < SIZE; c++) {
     if (grid.every((row) => called.has(row[c]))) strikes++;
   }
 
-  // Main diagonal (top-left → bottom-right)
   if (Array.from({ length: SIZE }, (_, i) => grid[i][i]).every((n) => called.has(n))) strikes++;
-
-  // Anti-diagonal (top-right → bottom-left)
   if (Array.from({ length: SIZE }, (_, i) => grid[i][SIZE - 1 - i]).every((n) => called.has(n))) strikes++;
 
   return strikes;
@@ -599,15 +491,15 @@ export function isWinner(strikeCount: number): boolean {
 }
 ```
 
-- [ ] **Step 4: Run tests — verify they pass**
+- [ ] **Step 6: Run — verify PASS**
 
 ```bash
 npm test -- lib/bingo-logic.test.ts
 ```
 
-Expected: PASS — 6 tests passing.
+Expected: 7 tests passing.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add lib/bingo-logic.ts lib/bingo-logic.test.ts jest.config.js package.json
@@ -620,8 +512,6 @@ git commit -m "feat: add bingo logic utilities with tests"
 
 **Files:**
 - Create: `hooks/use-websocket.ts`
-
-Manages WS connection lifecycle, automatic reconnection, and typed message sending.
 
 - [ ] **Step 1: Create `hooks/use-websocket.ts`**
 
@@ -639,7 +529,7 @@ interface UseWebSocketOptions {
 
 export function useWebSocket(url: string, options: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -660,7 +550,7 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
 
     ws.onclose = () => {
       optionsRef.current.onClose?.();
-      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      reconnectRef.current = setTimeout(connect, 3000);
     };
 
     ws.onerror = (err) => console.error("WebSocket error", err);
@@ -669,7 +559,7 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
   useEffect(() => {
     connect();
     return () => {
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };
   }, [connect]);
@@ -701,8 +591,6 @@ git commit -m "feat: add typed WebSocket hook with auto-reconnect"
 - Create: `hooks/use-game.ts`
 - Create: `contexts/game-context.tsx`
 
-`use-game` computes derived state from WebSocket events. `game-context` makes it available to all game route components.
-
 - [ ] **Step 1: Create `hooks/use-game.ts`**
 
 ```typescript
@@ -711,7 +599,7 @@ git commit -m "feat: add typed WebSocket hook with auto-reconnect"
 import { useState, useCallback } from "react";
 import { useWebSocket } from "./use-websocket";
 import { detectStrikes } from "@/lib/bingo-logic";
-import type { ServerMessage, ClientMessage, GameState, Player } from "@/lib/ws-types";
+import type { ServerMessage, ClientMessage, GameState } from "@/lib/ws-types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080";
 
@@ -732,19 +620,12 @@ export function useGame(userId: string) {
       switch (msg.type) {
         case "ROOM_CREATED":
           return { ...prev, roomCode: msg.roomCode };
-
         case "PLAYER_JOINED":
           return { ...prev, players: msg.players };
-
         case "PLAYER_LEFT":
-          return {
-            ...prev,
-            players: prev.players.filter((p) => p.id !== msg.userId),
-          };
-
+          return { ...prev, players: prev.players.filter((p) => p.id !== msg.userId) };
         case "GAME_STARTED":
           return { ...prev, phase: "setup" };
-
         case "NUMBER_CALLED": {
           const calledNumbers = [...prev.calledNumbers, msg.number];
           const calledSet = new Set(calledNumbers);
@@ -754,19 +635,16 @@ export function useGame(userId: string) {
           );
           return { ...prev, calledNumbers, players };
         }
-
         case "STRIKE": {
           const players = prev.players.map((p) =>
             p.id === msg.userId ? { ...p, strikeCount: msg.strikeCount } : p
           );
           return { ...prev, players };
         }
-
         case "GAME_OVER": {
           const winner = prev.players.find((p) => p.id === msg.winnerId) ?? null;
           return { ...prev, phase: "finished", winner };
         }
-
         default:
           return prev;
       }
@@ -800,13 +678,7 @@ interface GameContextValue {
 
 const GameContext = createContext<GameContextValue | null>(null);
 
-export function GameProvider({
-  children,
-  userId,
-}: {
-  children: React.ReactNode;
-  userId: string;
-}) {
+export function GameProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
   const game = useGame(userId);
   return <GameContext.Provider value={game}>{children}</GameContext.Provider>;
 }
@@ -832,20 +704,22 @@ git commit -m "feat: add game context with WebSocket-driven state"
 **Files:**
 - Create: `app/(game)/layout.tsx`
 
-Wraps all `/room` routes with `GameProvider`, passing the current user's ID from the session.
+Uses Auth0's server-side `getSession` to get the current user and pass their ID to `GameProvider`.
 
 - [ ] **Step 1: Create `app/(game)/layout.tsx`**
 
 ```typescript
-import { auth } from "@/lib/auth";
+import { getSession } from "@auth0/nextjs-auth0";
 import { redirect } from "next/navigation";
 import { GameProvider } from "@/contexts/game-context";
 
 export default async function GameLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await getSession();
+  if (!session?.user) redirect("/api/auth/login");
 
-  return <GameProvider userId={session.user.id}>{children}</GameProvider>;
+  return (
+    <GameProvider userId={session.user.sub}>{children}</GameProvider>
+  );
 }
 ```
 
@@ -853,7 +727,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
 
 ```bash
 git add app/\(game\)/layout.tsx
-git commit -m "feat: add game layout with GameProvider and auth guard"
+git commit -m "feat: add game layout with Auth0 session guard and GameProvider"
 ```
 
 ---
@@ -936,7 +810,7 @@ export function RoomCodeBadge({ code }: { code: string }) {
 - [ ] **Step 4: Commit**
 
 ```bash
-git add components/ui/input.tsx components/ui/spinner.tsx components/ui/room-code-badge.tsx
+git add components/ui/
 git commit -m "feat: add shared UI primitives (Input, Spinner, RoomCodeBadge)"
 ```
 
@@ -1096,14 +970,10 @@ export function PlayerList({ players, currentUserId }: { players: Player[]; curr
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">{p.name}</span>
               {p.isComputer && (
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
-                  CPU
-                </span>
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">CPU</span>
               )}
               {p.id === currentUserId && (
-                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600 dark:bg-indigo-900/50">
-                  You
-                </span>
+                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600 dark:bg-indigo-900/50">You</span>
               )}
             </div>
             <StrikeTracker count={p.strikeCount} />
@@ -1128,23 +998,25 @@ git commit -m "feat: add bingo grid components (Cell, Grid, StrikeTracker, Calle
 
 **Files:**
 - Modify: `app/page.tsx`
+- Create: `app/home-client.tsx`
+
+Auth0's `getSession` provides the server-side session. The client gets user info via `useUser` from `@auth0/nextjs-auth0/client`.
 
 - [ ] **Step 1: Rewrite `app/page.tsx`**
 
 ```typescript
-import { auth, signOut } from "@/lib/auth";
+import { getSession } from "@auth0/nextjs-auth0";
 import { redirect } from "next/navigation";
 import { HomeClient } from "./home-client";
 
 export default async function HomePage() {
-  const session = await auth();
-  if (!session) redirect("/sign-in");
+  const session = await getSession();
+  if (!session?.user) redirect("/api/auth/login");
 
   return (
     <HomeClient
       userName={session.user.name ?? "Player"}
-      userImage={session.user.image ?? undefined}
-      userId={session.user.id}
+      userImage={session.user.picture ?? undefined}
     />
   );
 }
@@ -1159,26 +1031,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signOut } from "next-auth/react";
 
 interface HomeClientProps {
   userName: string;
   userImage?: string;
-  userId: string;
 }
 
-export function HomeClient({ userName, userImage, userId }: HomeClientProps) {
+export function HomeClient({ userName, userImage }: HomeClientProps) {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState("");
 
-  const handleCreate = () => {
-    router.push("/room/new/lobby?mode=multiplayer");
-  };
-
-  const handleVsComputer = () => {
-    router.push("/room/new/lobby?mode=computer");
-  };
+  const handleCreate = () => router.push("/room/new/lobby?mode=multiplayer");
+  const handleVsComputer = () => router.push("/room/new/lobby?mode=computer");
 
   const handleJoin = () => {
     const code = joinCode.trim().toUpperCase();
@@ -1192,29 +1057,21 @@ export function HomeClient({ userName, userImage, userId }: HomeClientProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 p-6 dark:bg-zinc-950">
       <div className="w-full max-w-md space-y-6">
-        {/* Header */}
         <div className="text-center">
           <h1 className="text-5xl font-black tracking-tight">🎱 BINGO</h1>
           <p className="mt-2 text-zinc-500">5 strikes to win</p>
         </div>
 
-        {/* User info */}
         <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex items-center gap-3">
-            {userImage && (
-              <img src={userImage} alt="" className="h-8 w-8 rounded-full" />
-            )}
+            {userImage && <img src={userImage} alt="" className="h-8 w-8 rounded-full" />}
             <span className="text-sm font-medium">{userName}</span>
           </div>
-          <button
-            onClick={() => signOut({ callbackUrl: "/sign-in" })}
-            className="text-xs text-zinc-400 hover:text-zinc-600"
-          >
+          <a href="/api/auth/logout" className="text-xs text-zinc-400 hover:text-zinc-600">
             Sign out
-          </button>
+          </a>
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col gap-3">
           <Button onClick={handleCreate} className="w-full py-3 text-base">
             Create Room
@@ -1224,22 +1081,16 @@ export function HomeClient({ userName, userImage, userId }: HomeClientProps) {
           </Button>
         </div>
 
-        {/* Join room */}
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <Input
               placeholder="Enter room code"
               value={joinCode}
-              onChange={(e) => {
-                setJoinCode(e.target.value.toUpperCase());
-                setError("");
-              }}
+              onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setError(""); }}
               maxLength={6}
               className="font-mono tracking-widest uppercase"
             />
-            <Button onClick={handleJoin} disabled={!joinCode}>
-              Join
-            </Button>
+            <Button onClick={handleJoin} disabled={!joinCode}>Join</Button>
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
@@ -1263,8 +1114,6 @@ git commit -m "feat: add home page with create/join room and vs-computer options
 **Files:**
 - Create: `app/(game)/room/[code]/lobby/page.tsx`
 
-Shows room code, lists players, and has a "Start Game" button (host only). On mount, sends `CREATE_ROOM` or `JOIN_ROOM` to the WebSocket.
-
 - [ ] **Step 1: Create `app/(game)/room/[code]/lobby/page.tsx`**
 
 ```typescript
@@ -1272,7 +1121,7 @@ Shows room code, lists players, and has a "Start Game" button (host only). On mo
 
 import { useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useUser } from "@auth0/nextjs-auth0/client";
 import { useGameContext } from "@/contexts/game-context";
 import { RoomCodeBadge } from "@/components/ui/room-code-badge";
 import { Button } from "@/components/ui/button";
@@ -1281,55 +1130,38 @@ import { Spinner } from "@/components/ui/spinner";
 export default function LobbyPage() {
   const { code } = useParams<{ code: string }>();
   const searchParams = useSearchParams();
-  const mode = searchParams.get("mode"); // "multiplayer" | "computer" | null (joining)
+  const mode = searchParams.get("mode");
   const router = useRouter();
-  const { data: session } = useSession();
+  const { user } = useUser();
   const { state, send } = useGameContext();
 
   const isNew = code === "new";
-  const userId = session?.user?.id ?? "";
-  const userName = session?.user?.name ?? "Player";
+  const userId = user?.sub ?? "";
+  const userName = user?.name ?? "Player";
 
   useEffect(() => {
     if (!userId) return;
-
     if (isNew) {
-      send({
-        type: "CREATE_ROOM",
-        userId,
-        userName,
-        vsComputer: mode === "computer",
-      });
+      send({ type: "CREATE_ROOM", userId, userName, vsComputer: mode === "computer" });
     } else {
       send({ type: "JOIN_ROOM", roomCode: code, userId, userName });
     }
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Redirect once room code is assigned (after CREATE_ROOM response)
   useEffect(() => {
-    if (isNew && state.roomCode && state.roomCode !== "") {
-      router.replace(`/room/${state.roomCode}/lobby`);
-    }
+    if (isNew && state.roomCode) router.replace(`/room/${state.roomCode}/lobby`);
   }, [state.roomCode, isNew, router]);
 
-  // When game starts, navigate to setup
   useEffect(() => {
-    if (state.phase === "setup") {
-      router.push(`/room/${state.roomCode}/setup`);
-    }
+    if (state.phase === "setup") router.push(`/room/${state.roomCode}/setup`);
   }, [state.phase, state.roomCode, router]);
 
   const isHost = state.players[0]?.id === userId;
   const displayCode = isNew ? "..." : code;
 
-  const handleStart = () => {
-    send({ type: "READY" });
-  };
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-zinc-50 p-6 dark:bg-zinc-950">
       <h1 className="text-2xl font-bold">Waiting Room</h1>
-
       <RoomCodeBadge code={displayCode} />
 
       <div className="flex flex-col gap-3 w-full max-w-sm">
@@ -1342,32 +1174,22 @@ export default function LobbyPage() {
         ) : (
           <ul className="flex flex-col gap-2">
             {state.players.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
-              >
+              <li key={p.id} className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
                 <span className="text-sm font-medium">{p.name}</span>
-                {p.isComputer && (
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">CPU</span>
-                )}
-                {p.id === userId && (
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600">You</span>
-                )}
-                {isHost && p.id === userId && (
-                  <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-600">Host</span>
-                )}
+                {p.isComputer && <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">CPU</span>}
+                {p.id === userId && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-600">You</span>}
+                {isHost && p.id === userId && <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-600">Host</span>}
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {isHost && (
-        <Button onClick={handleStart} disabled={state.players.length < 2} className="w-full max-w-sm py-3">
+      {isHost ? (
+        <Button onClick={() => send({ type: "READY" })} disabled={state.players.length < 2} className="w-full max-w-sm py-3">
           Start Game
         </Button>
-      )}
-      {!isHost && (
+      ) : (
         <p className="text-sm text-zinc-400">Waiting for the host to start...</p>
       )}
     </div>
@@ -1389,14 +1211,12 @@ git commit -m "feat: add room lobby page with player list and start game"
 **Files:**
 - Create: `app/(game)/room/[code]/setup/page.tsx`
 
-Player arranges numbers 1-25 on their 5×5 grid before the game starts. They can shuffle or click a number then click a cell to place it.
-
 - [ ] **Step 1: Create `app/(game)/room/[code]/setup/page.tsx`**
 
 ```typescript
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGameContext } from "@/contexts/game-context";
 import { Grid } from "@/components/bingo/grid";
@@ -1408,7 +1228,6 @@ export default function SetupPage() {
   const router = useRouter();
   const { send, setMyGrid } = useGameContext();
 
-  // Start with a shuffled grid
   const [grid, setGrid] = useState<number[][]>(() => {
     const nums = shuffle(range(25));
     return Array.from({ length: 5 }, (_, r) => nums.slice(r * 5, r * 5 + 5));
@@ -1429,24 +1248,12 @@ export default function SetupPage() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-zinc-50 p-6 dark:bg-zinc-950">
       <div className="text-center">
         <h1 className="text-2xl font-bold">Arrange Your Board</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          This is your secret grid. Your opponent won't see the positions.
-        </p>
+        <p className="mt-1 text-sm text-zinc-500">Your opponent won't see the number positions.</p>
       </div>
-
-      <Grid
-        grid={grid}
-        calledNumbers={new Set()}
-        isEditing={false}
-      />
-
+      <Grid grid={grid} calledNumbers={new Set()} />
       <div className="flex gap-3 w-full max-w-xs">
-        <Button variant="ghost" onClick={handleShuffle} className="flex-1">
-          Shuffle
-        </Button>
-        <Button onClick={handleConfirm} className="flex-1">
-          Confirm Board
-        </Button>
+        <Button variant="ghost" onClick={handleShuffle} className="flex-1">Shuffle</Button>
+        <Button onClick={handleConfirm} className="flex-1">Confirm Board</Button>
       </div>
     </div>
   );
@@ -1467,8 +1274,6 @@ git commit -m "feat: add board setup page with shuffle and confirm"
 **Files:**
 - Create: `app/(game)/room/[code]/play/page.tsx`
 
-The main game screen. Players take turns calling a number. Each player's grid shows called numbers highlighted. Strike tracker and player list are in a sidebar.
-
 - [ ] **Step 1: Create `app/(game)/room/[code]/play/page.tsx`**
 
 ```typescript
@@ -1476,7 +1281,7 @@ The main game screen. Players take turns calling a number. Each player's grid sh
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useUser } from "@auth0/nextjs-auth0/client";
 import { useGameContext } from "@/contexts/game-context";
 import { Grid } from "@/components/bingo/grid";
 import { StrikeTracker } from "@/components/bingo/strike-tracker";
@@ -1489,32 +1294,19 @@ import { detectStrikes } from "@/lib/bingo-logic";
 export default function PlayPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { user } = useUser();
   const { state, send } = useGameContext();
   const [inputNumber, setInputNumber] = useState("");
   const [callError, setCallError] = useState("");
 
-  const userId = session?.user?.id ?? "";
+  const userId = user?.sub ?? "";
   const calledSet = new Set(state.calledNumbers);
   const myStrikes = detectStrikes(state.myGrid, calledSet);
 
-  // Navigate to finish if game ends
-  useEffect(() => {
-    if (state.phase === "finished") {
-      router.push(`/room/${code}/play?finished=true`);
-    }
-  }, [state.phase, code, router]);
-
   const handleCallNumber = () => {
     const n = parseInt(inputNumber, 10);
-    if (isNaN(n) || n < 1 || n > 25) {
-      setCallError("Enter a number between 1 and 25");
-      return;
-    }
-    if (state.calledNumbers.includes(n)) {
-      setCallError("Number already called");
-      return;
-    }
+    if (isNaN(n) || n < 1 || n > 25) { setCallError("Enter a number between 1 and 25"); return; }
+    if (state.calledNumbers.includes(n)) { setCallError("Number already called"); return; }
     send({ type: "CALL_NUMBER", number: n });
     setInputNumber("");
     setCallError("");
@@ -1529,53 +1321,36 @@ export default function PlayPage() {
             {state.winner.id === userId ? "You Won!" : `${state.winner.name} Won!`}
           </h1>
         </div>
-        <Button onClick={() => router.push("/")} className="w-48">
-          Play Again
-        </Button>
+        <Button onClick={() => router.push("/")} className="w-48">Play Again</Button>
       </div>
     );
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 p-4 dark:bg-zinc-950 lg:flex-row lg:gap-6 lg:p-8">
-      {/* Main board */}
       <div className="flex flex-col items-center gap-6 flex-1">
         <div className="flex items-center justify-between w-full max-w-xs">
           <h1 className="text-xl font-bold">Room: {code}</h1>
           <StrikeTracker count={myStrikes} />
         </div>
-
-        <Grid
-          grid={state.myGrid}
-          calledNumbers={calledSet}
-        />
-
-        {/* Call a number */}
+        <Grid grid={state.myGrid} calledNumbers={calledSet} />
         <div className="flex flex-col gap-2 w-full max-w-xs">
           <div className="flex gap-2">
             <Input
               type="number"
               min={1}
               max={25}
-              placeholder="Call a number (1-25)"
+              placeholder="Call a number (1–25)"
               value={inputNumber}
-              onChange={(e) => {
-                setInputNumber(e.target.value);
-                setCallError("");
-              }}
+              onChange={(e) => { setInputNumber(e.target.value); setCallError(""); }}
               onKeyDown={(e) => e.key === "Enter" && handleCallNumber()}
             />
-            <Button onClick={handleCallNumber} disabled={!inputNumber}>
-              Call
-            </Button>
+            <Button onClick={handleCallNumber} disabled={!inputNumber}>Call</Button>
           </div>
           {callError && <p className="text-xs text-red-500">{callError}</p>}
         </div>
-
         <CalledNumbers numbers={state.calledNumbers} />
       </div>
-
-      {/* Sidebar */}
       <aside className="mt-6 lg:mt-0 lg:w-72">
         <PlayerList players={state.players} currentUserId={userId} />
       </aside>
@@ -1593,39 +1368,33 @@ git commit -m "feat: add live game play page with grid, number calling, and side
 
 ---
 
-## Task 17: Run and smoke-test the UI
+## Task 17: TypeScript check and smoke test
 
-- [ ] **Step 1: Start the dev server**
+- [ ] **Step 1: Start dev server**
 
 ```bash
 npm run dev
 ```
 
-Expected: server starts on `http://localhost:3000` with no build errors.
+Expected: starts on `http://localhost:3000` with no build errors.
 
-- [ ] **Step 2: Visit sign-in page**
+- [ ] **Step 2: Visit sign-in**
 
-Open `http://localhost:3000/sign-in`. Verify:
-- Google and GitHub buttons render
-- No console errors
+Open `http://localhost:3000/sign-in`. Verify the Google button renders with no console errors.
 
 - [ ] **Step 3: Verify auth redirect**
 
-Visit `http://localhost:3000/room/ABC123/lobby` without signing in. Verify it redirects to `/sign-in`.
+Visit `http://localhost:3000/room/ABC123/lobby` without a session. Verify it redirects to Auth0 login.
 
-- [ ] **Step 4: Check home page renders**
-
-After signing in via OAuth (requires real credentials in `.env.local`), verify the home page shows create/join/vs-computer options.
-
-- [ ] **Step 5: Check TypeScript**
+- [ ] **Step 4: TypeScript check**
 
 ```bash
 npx tsc --noEmit
 ```
 
-Expected: no type errors.
+Expected: no errors.
 
-- [ ] **Step 6: Lint**
+- [ ] **Step 5: Lint**
 
 ```bash
 npm run lint
@@ -1633,9 +1402,9 @@ npm run lint
 
 Expected: no errors.
 
-- [ ] **Step 7: Final commit**
+- [ ] **Step 6: Final commit**
 
 ```bash
 git add .
-git commit -m "chore: final lint and type check pass"
+git commit -m "chore: final type check and lint pass"
 ```
