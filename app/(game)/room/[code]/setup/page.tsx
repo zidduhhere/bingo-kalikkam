@@ -14,18 +14,15 @@ export default function SetupPage() {
   const [grid, setGrid] = useState<number[][]>(() => 
     Array.from({ length: 5 }, () => Array(5).fill(0))
   );
-  const [errorMsg, setErrorMsg] = useState("");
   const cellRefs = useRef<(HTMLInputElement | null)[][]>(Array.from({ length: 5 }, () => Array(5).fill(null)));
 
   const handleShuffle = () => {
     const nums = shuffle(range(25));
     setGrid(Array.from({ length: 5 }, (_, r) => nums.slice(r * 5, r * 5 + 5)));
-    setErrorMsg("");
   };
 
   const handleClear = () => {
     setGrid(Array.from({ length: 5 }, () => Array(5).fill(0)));
-    setErrorMsg("");
   };
 
   const focusNext = (r: number, c: number) => {
@@ -55,7 +52,6 @@ export default function SetupPage() {
        const newGrid = [...grid.map(row => [...row])];
        newGrid[r][c] = 0;
        setGrid(newGrid);
-       setErrorMsg("");
        return;
     }
     
@@ -63,27 +59,9 @@ export default function SetupPage() {
 
     const n = parseInt(val, 10);
     
-    if (n < 1 || n > 25) {
-       setErrorMsg("Number must be between 1 and 25");
-       return;
-    }
-
-    let isDuplicate = false;
-    for (let i = 0; i < 5; i++) {
-      for (let j = 0; j < 5; j++) {
-        if ((i !== r || j !== c) && grid[i][j] === n) isDuplicate = true;
-      }
-    }
-    
-    if (isDuplicate) {
-      setErrorMsg(`Number ${n} is already on the board`);
-      return; 
-    }
-
     const newGrid = [...grid.map(row => [...row])];
     newGrid[r][c] = n;
     setGrid(newGrid);
-    setErrorMsg("");
 
     if (val.length === 2) {
       focusNext(r, c);
@@ -122,7 +100,22 @@ export default function SetupPage() {
     }
   };
 
-  const isComplete = grid.every(row => row.every(cell => cell !== 0));
+  const getErrorMsg = () => {
+    const seen = new Set<number>();
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const val = grid[r][c];
+        if (val === 0) continue;
+        if (val < 1 || val > 25) return "Numbers must be between 1 and 25";
+        if (seen.has(val)) return `Number ${val} is duplicated`;
+        seen.add(val);
+      }
+    }
+    return "";
+  };
+
+  const errorMsg = getErrorMsg();
+  const isComplete = grid.every(row => row.every(cell => cell !== 0)) && errorMsg === "";
 
   const handleConfirm = () => {
     if (!isComplete) return;

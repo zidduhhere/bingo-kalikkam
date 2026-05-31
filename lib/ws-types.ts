@@ -8,7 +8,8 @@ export type ServerMessage =
   | { type: "GAME_START_PLAYING"; currentTurnId: string }
   | { type: "NUMBER_CALLED"; number: number; calledBy: string; nextTurnId: string }
   | { type: "STRIKE"; userId: string; strikeCount: number; line: number[] }
-  | { type: "GAME_OVER"; winnerId: string; winnerName: string }
+  | { type: "PLAYER_WON"; winnerId: string; winnerName: string }
+  | { type: "GAME_OVER" }
   | { type: "ERROR"; message: string };
 
 export interface Player {
@@ -26,6 +27,6 @@ export interface GameState {
   players: Player[];
   calledNumbers: number[];
   myGrid: number[][];
-  winner: Player | null;
+  winners: Player[];
   currentTurnId: string | null;
 }

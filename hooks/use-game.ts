@@ -35,7 +35,7 @@ const INITIAL_STATE: GameState = {
   players: [],
   calledNumbers: [],
   myGrid: [],
-  winner: null,
+  winners: [],
   currentTurnId: null,
 };
 
@@ -135,10 +135,27 @@ export function useGame(userId: string, userName: string) {
           break;
         }
 
+        case "PLAYER_WON": {
+          const winnerId = payload.winnerId as string;
+          const winnerPlayer = prev.players.find(p => p.id === winnerId);
+          if (winnerPlayer && !prev.winners.find(w => w.id === winnerId)) {
+            const newWinners = [...prev.winners, winnerPlayer];
+            nextState = { ...prev, winners: newWinners };
+            
+            // Check if game should end
+            if (prev.players.length > 1 && prev.players.length - newWinners.length <= 1) {
+              nextState.phase = "finished";
+              nextState.currentTurnId = null;
+            } else if (prev.players.length === 1 && newWinners.length === 1) {
+              nextState.phase = "finished";
+              nextState.currentTurnId = null;
+            }
+          }
+          break;
+        }
+
         case "GAME_OVER": {
-          const winner =
-            prev.players.find((p) => p.id === (payload.winnerId as string)) ?? null;
-          nextState = { ...prev, phase: "finished", winner, currentTurnId: null };
+          nextState = { ...prev, phase: "finished", currentTurnId: null };
           break;
         }
 
@@ -271,8 +288,13 @@ export function useGame(userId: string, userName: string) {
       if (cur.calledNumbers.includes(n)) return;
 
       const players = cur.players;
-      const currentIndex = players.findIndex((p) => p.id === cur.currentTurnId);
-      const nextIndex = (currentIndex + 1) % players.length;
+      let currentIndex = players.findIndex((p) => p.id === cur.currentTurnId);
+      let nextIndex = currentIndex;
+      let attempts = 0;
+      do {
+        nextIndex = (nextIndex + 1) % players.length;
+        attempts++;
+      } while (cur.winners.some(w => w.id === players[nextIndex].id) && attempts < players.length);
       const nextTurnId = players[nextIndex].id;
 
       await publish("NUMBER_CALLED", {
@@ -295,9 +317,9 @@ export function useGame(userId: string, userName: string) {
             strikeCount: strikes,
             line: [],
           });
-          if (strikes >= 5) {
-            await publish("GAME_OVER", { winnerId: userId, winnerName: userName });
-            return;
+          if (strikes >= 5 && !cur.winners.find(w => w.id === userId)) {
+            await publish("PLAYER_WON", { winnerId: userId, winnerName: userName });
+            // Let the event handler handle GAME_OVER state transitions
           }
         }
       }
@@ -316,8 +338,13 @@ export function useGame(userId: string, userName: string) {
           } while (usedNumbers.has(num));
 
           const compPlayers = latestState.players;
-          const compIndex = compPlayers.findIndex((p) => p.id === "computer");
-          const compNextIndex = (compIndex + 1) % compPlayers.length;
+          let compIndex = compPlayers.findIndex((p) => p.id === "computer");
+          let compNextIndex = compIndex;
+          let compAttempts = 0;
+          do {
+            compNextIndex = (compNextIndex + 1) % compPlayers.length;
+            compAttempts++;
+          } while (latestState.winners.some(w => w.id === compPlayers[compNextIndex].id) && compAttempts < compPlayers.length);
           const compNextTurnId = compPlayers[compNextIndex].id;
 
           await publish("NUMBER_CALLED", {
@@ -337,8 +364,8 @@ export function useGame(userId: string, userName: string) {
                 strikeCount: compStrikes,
                 line: [],
               });
-              if (compStrikes >= 5) {
-                await publish("GAME_OVER", { winnerId: "computer", winnerName: "Computer" });
+              if (compStrikes >= 5 && !latestState.winners.find(w => w.id === "computer")) {
+                await publish("PLAYER_WON", { winnerId: "computer", winnerName: "Computer" });
               }
             }
           }

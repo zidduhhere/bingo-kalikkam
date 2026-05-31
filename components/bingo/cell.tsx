@@ -21,7 +21,8 @@ export function Cell({ value, isCalled, isEditing, onClick, onChange, onKeyDown,
         ref={inputRef}
         type="text"
         inputMode="numeric"
-        value={value === 0 ? "" : value}
+        maxLength={2}
+        value={value === 0 ? "" : value.toString()}
         onChange={onChange}
         onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLInputElement>}
         onClick={onClick}

@@ -65,12 +65,37 @@ export default function PlayPage() {
     }
   };
 
-  if (state.phase === "finished" && state.winner) {
+  if (state.phase === "finished") {
+    const myIndex = state.winners.findIndex(w => w.id === userId);
+    const didIWin = myIndex !== -1;
+    const getOrdinal = (n: number) => {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
+
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 bg-transparent">
-        <div className="text-center rotate-[-2deg] bg-white/70 p-8 rounded-3xl border border-zinc-200/50 shadow-xl backdrop-blur-sm">
-          <div className="text-7xl mb-4">{state.winner.id === userId ? "🏆" : "😔"}</div>
-          <h1 className="text-5xl font-black text-blue-900 drop-shadow-sm">{state.winner.id === userId ? "You Won!" : `${state.winner.name} Won!`}</h1>
+        <div className="text-center rotate-[-2deg] bg-white/70 p-8 rounded-3xl border border-zinc-200/50 shadow-xl backdrop-blur-sm max-w-md w-full">
+          <div className="text-7xl mb-4">{didIWin ? "🏆" : "😔"}</div>
+          <h1 className="text-4xl font-black text-blue-900 drop-shadow-sm mb-6">
+            {didIWin ? `You got ${getOrdinal(myIndex + 1)} Place!` : "You Lost!"}
+          </h1>
+          <div className="flex flex-col gap-2 text-left bg-white/50 p-4 rounded-xl border-2 border-blue-900/20 [border-radius:15px_225px_15px_255px/255px_15px_225px_15px]">
+             <h3 className="font-bold text-2xl text-blue-950 underline decoration-blue-900/30 decoration-[3px] mb-2">Final Standings</h3>
+             {state.winners.map((w, i) => (
+                <div key={w.id} className="text-xl font-bold text-blue-900 flex justify-between">
+                  <span>{i + 1}. {w.name} {w.id === userId && <span className="text-red-600 text-sm">(YOU)</span>}</span>
+                  <span className="text-blue-600">WINNER</span>
+                </div>
+             ))}
+             {state.players.filter(p => !state.winners.find(w => w.id === p.id)).map(p => (
+                <div key={p.id} className="text-xl font-bold text-blue-900/50 flex justify-between">
+                  <span>- {p.name} {p.id === userId && <span className="text-red-400 text-sm">(YOU)</span>}</span>
+                  <span>DNF</span>
+                </div>
+             ))}
+          </div>
         </div>
         <Button onClick={() => router.push("/")} className="w-48 text-xl">Play Again</Button>
       </div>
