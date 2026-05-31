@@ -21,9 +21,16 @@ export default function SetupPage() {
     }
   }, [code, mode, state.roomCode, actions]);
 
+  useEffect(() => {
+    if (state.phase === "playing") {
+      router.push(`/room/${code}/play`);
+    }
+  }, [state.phase, code, router]);
+
   const [grid, setGrid] = useState<number[][]>(() => 
     Array.from({ length: 5 }, () => Array(5).fill(0))
   );
+  const [isConfirmed, setIsConfirmed] = useState(false);
   const cellRefs = useRef<(HTMLInputElement | null)[][]>(Array.from({ length: 5 }, () => Array(5).fill(null)));
 
   const handleShuffle = () => {
@@ -129,10 +136,28 @@ export default function SetupPage() {
 
   const handleConfirm = () => {
     if (!isComplete) return;
+    setIsConfirmed(true);
     actions.submitGrid(grid);
     setMyGrid(grid);
-    router.push(`/room/${code}/play`);
   };
+
+  if (isConfirmed && state.phase === "setup") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6 bg-transparent">
+        <div className="bg-white/60 backdrop-blur-sm p-8 rounded-3xl shadow-lg border border-zinc-200/50 text-center max-w-sm flex flex-col items-center gap-4 rounded-[255px_15px_225px_15px/15px_225px_15px_255px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/salim-kumar-proud.gif" alt="Waiting" className="w-32 rounded-xl border-2 border-blue-900/20 shadow-sm mix-blend-multiply" />
+          <h2 className="text-3xl font-bold text-blue-900 font-(family-name:--font-caveat)">Board Locked!</h2>
+          <p className="text-lg text-blue-800/70">Waiting for opponents to confirm their boards...</p>
+          <div className="flex gap-1 mt-2">
+            {[0,1,2].map(i => (
+              <span key={i} className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{animationDelay: `${i * 0.15}s`}} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6 bg-transparent">

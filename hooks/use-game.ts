@@ -414,7 +414,10 @@ export function useGame(userId: string, userName: string) {
   const submitGrid = useCallback(
     async (grid: number[][]) => {
       gridsRef.current[userId] = grid;
-      setState((prev) => ({ ...prev, myGrid: grid }));
+      // Update stateRef synchronously so handleEvent (triggered by publish
+      // below) reads the correct myGrid and doesn't overwrite it.
+      stateRef.current = { ...stateRef.current, myGrid: grid };
+      setState(stateRef.current);
 
       const cur = stateRef.current;
       // Check if computer also needs a grid
