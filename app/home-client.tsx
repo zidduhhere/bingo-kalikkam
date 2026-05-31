@@ -15,7 +15,6 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState("");
   const { lang } = useLanguage();
-
   const [showDifficulty, setShowDifficulty] = useState(false);
 
   const handleCreate = () => router.push("/room/new/lobby?mode=multiplayer");
@@ -151,7 +150,7 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
 
         {/* Leaderboard Section */}
         <div className="border-t-2 border-blue-900/10 pt-8 mt-4 flex flex-col items-center gap-6 pb-12">
-          <h2 className="text-xl font-black text-blue-900/50 text-center font-(family-name:--font-caveat) uppercase tracking-widest text-sm">
+          <h2 className="font-black text-blue-900/50 text-center font-(family-name:--font-caveat) uppercase tracking-widest text-sm">
             {lang === "EN" ? "Reigning Champion" : "ഇപ്പോഴത്തെ ചാമ്പ്യൻ"}
           </h2>
           <TopPlayerCard />
