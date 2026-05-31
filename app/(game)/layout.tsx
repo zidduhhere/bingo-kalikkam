@@ -1,18 +1,20 @@
 "use client";
 
 import { useUser } from "@/components/user-provider";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { GameProvider } from "@/contexts/game-context";
 import { useEffect } from "react";
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useUser();
 
+  const router = useRouter();
+
   useEffect(() => {
     if (!isLoading && !user) {
-      redirect("/sign-in");
+      router.replace("/sign-in");
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   if (isLoading || !user) return <div className="p-8">Loading...</div>;
 

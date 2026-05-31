@@ -28,6 +28,7 @@ export interface GameActions {
   submitGrid: (grid: number[][]) => void;
   callNumber: (n: number) => void;
   setDifficulty: (difficulty: Difficulty) => void;
+  requestPlayAgain: () => void;
 }
 
 // ─── initial state ────────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ const INITIAL_STATE: GameState = {
   winners: [],
   currentTurnId: null,
   difficulty: "normal",
+  playAgainRequests: [],
 };
 
 // ─── hook ────────────────────────────────────────────────────────────────────
@@ -97,6 +99,14 @@ export function useGame(userId: string, userName: string) {
   }, [state]);
 
   const previousStrikes = useRef<Record<string, number>>({});
+
+  // Reset previous strikes when not playing
+  useEffect(() => {
+    if (state.phase === "setup" || state.phase === "lobby") {
+      previousStrikes.current = {};
+    }
+  }, [state.phase]);
+
   useEffect(() => {
     if (state.phase !== "playing") return;
     
@@ -109,15 +119,22 @@ export function useGame(userId: string, userName: string) {
       if (p.strikeCount > prev) {
         previousStrikes.current[p.id] = p.strikeCount;
         
-        publishRef.current("STRIKE", {
-          userId: p.id,
-          strikeCount: p.strikeCount,
-          line: [],
-        });
-        
-        if (p.strikeCount >= 5 && !state.winners.find(w => w.id === p.id)) {
-          publishRef.current("PLAYER_WON", { winnerId: p.id, winnerName: p.name });
-        }
+        // Execute sequentially to prevent websocket rapid-fire race conditions
+        (async () => {
+          try {
+            await publishRef.current("STRIKE", {
+              userId: p.id,
+              strikeCount: p.strikeCount,
+              line: [],
+            });
+            
+            if (p.strikeCount >= 5 && !state.winners.find(w => w.id === p.id)) {
+              await publishRef.current("PLAYER_WON", { winnerId: p.id, winnerName: p.name });
+            }
+          } catch (e) {
+            console.error("Failed to publish strike/won events", e);
+          }
+        })();
       }
     });
   }, [state.players, state.phase, state.winners, userId]);
@@ -251,16 +268,35 @@ export function useGame(userId: string, userName: string) {
             break;
           }
 
-          case "GAME_OVER": {
+          case "GAME_OVER":
             nextState = { ...prevReactState, phase: "finished", currentTurnId: null };
             break;
-          }
 
           case "GAME_OVER_GRIDS": {
             const grids = payload.grids as Record<string, number[][]>;
             nextState = {
               ...prevReactState,
               opponentGrids: { ...(prevReactState.opponentGrids || {}), ...grids }
+            };
+            break;
+          }
+          
+          case "PLAY_AGAIN_REQUESTED": {
+            const requestUserId = payload.userId as string;
+            const currentRequests = prevReactState.playAgainRequests || [];
+            if (!currentRequests.includes(requestUserId)) {
+              nextState = { ...prevReactState, playAgainRequests: [...currentRequests, requestUserId] };
+            }
+            break;
+          }
+
+          case "GAME_RESET": {
+            nextState = {
+              ...INITIAL_STATE,
+              roomCode: prevReactState.roomCode,
+              players: prevReactState.players.map(p => ({ ...p, strikeCount: 0, isReady: false })),
+              phase: "setup",
+              difficulty: prevReactState.difficulty,
             };
             break;
           }
@@ -483,6 +519,24 @@ export function useGame(userId: string, userName: string) {
     await publish("DIFFICULTY_CHANGED", { difficulty });
   }, [publish]);
 
+  const requestPlayAgain = useCallback(async () => {
+    const cur = stateRef.current;
+    if (cur.phase !== "finished") return;
+
+    // Check if we will trigger a reset
+    const humanPlayers = cur.players.filter(p => !p.isComputer);
+    const currentRequests = cur.playAgainRequests || [];
+    
+    // If we are the last human needed
+    const neededHumans = humanPlayers.filter(p => p.id !== userId && !currentRequests.includes(p.id));
+    
+    if (neededHumans.length === 0) {
+      await publish("GAME_RESET", {});
+    } else {
+      await publish("PLAY_AGAIN_REQUESTED", { userId });
+    }
+  }, [userId, publish]);
+
   const actions: GameActions = {
     createRoom,
     joinRoom,
@@ -490,6 +544,7 @@ export function useGame(userId: string, userName: string) {
     submitGrid,
     callNumber,
     setDifficulty,
+    requestPlayAgain,
   };
 
   const setMyGrid = useCallback((grid: number[][]) => {

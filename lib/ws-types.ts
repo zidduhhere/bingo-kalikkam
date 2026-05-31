@@ -12,6 +12,8 @@ export type ServerMessage =
   | { type: "GAME_OVER" }
   | { type: "GAME_OVER_GRIDS"; grids: Record<string, number[][]> }
   | { type: "DIFFICULTY_CHANGED"; difficulty: "normal" | "hard" }
+  | { type: "PLAY_AGAIN_REQUESTED"; userId: string }
+  | { type: "GAME_RESET" }
   | { type: "ERROR"; message: string };
 
 export interface Player {
@@ -33,4 +35,5 @@ export interface GameState {
   currentTurnId: string | null;
   difficulty: "normal" | "hard";
   opponentGrids?: Record<string, number[][]>;
+  playAgainRequests: string[];
 }

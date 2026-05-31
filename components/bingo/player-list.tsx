@@ -12,7 +12,7 @@ export function PlayerList({ players, currentUserId }: { players: Player[]; curr
               {p.isComputer && <span className="font-sans rounded-full bg-blue-100/50 px-2 py-0.5 text-xs font-bold tracking-wider text-blue-600 border border-blue-200">CPU</span>}
               {p.id === currentUserId && <span className="font-sans rounded-full bg-red-100/50 px-2 py-0.5 text-xs font-bold tracking-wider text-red-600 border border-red-200">YOU</span>}
             </div>
-            <div className="w-full overflow-x-auto pb-1">
+            <div className="w-full pb-1">
               <StrikeTracker count={p.strikeCount} />
             </div>
           </li>

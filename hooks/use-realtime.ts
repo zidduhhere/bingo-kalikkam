@@ -67,7 +67,12 @@ export function useRealtime({ roomCode, onEvent, enabled }: UseRealtimeOptions) 
       "GAME_START_PLAYING",
       "NUMBER_CALLED",
       "STRIKE",
+      "PLAYER_WON",
       "GAME_OVER",
+      "GAME_OVER_GRIDS",
+      "DIFFICULTY_CHANGED",
+      "PLAY_AGAIN_REQUESTED",
+      "GAME_RESET",
       "ERROR",
     ] as const;
 

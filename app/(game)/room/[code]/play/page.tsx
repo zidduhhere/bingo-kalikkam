@@ -67,8 +67,10 @@ export default function PlayPage() {
       const audio = new Audio("/adich-keri%20vaa.webm");
       audio.volume = 1.0;
       audio.play().catch(e => console.log("Game over audio blocked:", e));
+    } else if (state.phase === "setup") {
+      router.push(`/room/${code}/setup${isComputerGame ? '?mode=computer' : ''}`);
     }
-  }, [state.phase]);
+  }, [state.phase, code, router, isComputerGame]);
 
   const handleCallNumber = () => {
     const n = parseInt(inputNumber, 10);
@@ -221,7 +223,9 @@ export default function PlayPage() {
           <Button onClick={handleShare} disabled={isGenerating} className="w-64 text-xl bg-purple-600 hover:bg-purple-700 font-(family-name:--font-caveat)">
             {isGenerating ? "Generating..." : "Share to Story 📸"}
           </Button>
-          <Button onClick={() => router.push("/")} className="w-64 text-xl">Play Again</Button>
+          <Button onClick={() => actions.requestPlayAgain()} disabled={state.playAgainRequests?.includes(userId)} className="w-64 text-xl">
+            {state.playAgainRequests?.includes(userId) ? "Waiting for opponent..." : "Play Again"}
+          </Button>
         </div>
 
         {/* Hidden Story Template */}

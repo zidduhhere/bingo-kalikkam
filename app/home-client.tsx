@@ -85,9 +85,64 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
         </div>
 
         <Button onClick={() => router.push("/leaderboard")} variant="ghost" className="w-full text-blue-800 font-(family-name:--font-caveat) text-xl hover:bg-transparent hover:underline -mt-2">
-          {lang === "EN" ? "View Leaderboard 🏆" : "ലീഡർബോർഡ് കാണുക 🏆"}
+          {lang === "EN" ? "View Full Leaderboard 🏆" : "ലീഡർബോർഡ് കാണുക 🏆"}
         </Button>
+        
+        {/* Leaderboard Preview */}
+        <div className="mt-4 border-t-2 border-blue-900/10 pt-6">
+          <h2 className="text-2xl font-black text-blue-900 drop-shadow-sm text-center mb-4 font-(family-name:--font-caveat)">
+            {lang === "EN" ? "Top Players" : "മുമ്പന്മാർ"}
+          </h2>
+          
+          <div className="bg-white/50 rounded-xl overflow-hidden shadow-sm border border-blue-900/10">
+            <LeaderboardPreview />
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function LeaderboardPreview() {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    insforge.database
+      .from("leaderboard")
+      .select("*")
+      .order("wins", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (data) setData(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-4 text-center text-blue-800/60 animate-pulse">Loading...</div>;
+  if (!data || data.length === 0) return <div className="p-4 text-center text-blue-800/60 text-sm">No games played yet.</div>;
+
+  return (
+    <div className="divide-y divide-blue-900/10">
+      {data.map((player, idx) => (
+        <div key={player.user_id} className="flex items-center justify-between p-3 hover:bg-white/40 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="font-black text-lg w-6 text-blue-900/40 text-center">{idx + 1}</span>
+            <span className="font-semibold text-blue-950 truncate max-w-[120px]">{player.user_name || "Unknown"}</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm font-medium">
+            <div className="flex flex-col items-center">
+              <span className="text-green-600 font-bold">{player.wins}</span>
+              <span className="text-[10px] text-green-600/70 uppercase">Wins</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-red-500 font-bold">{player.losses}</span>
+              <span className="text-[10px] text-red-500/70 uppercase">Loss</span>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
