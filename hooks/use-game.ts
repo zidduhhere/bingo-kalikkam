@@ -171,7 +171,9 @@ export function useGame(userId: string, userName: string) {
         p_winner_id: winner ? winner.id : null,
         p_winner_name: winner ? winner.name : null,
         p_loser_ids: loserIds
-      }).catch(e => console.error("Failed to record match result", e));
+      }).then(({ error }) => {
+        if (error) console.error("Failed to record match result", error);
+      });
     }
   }, [state.phase, state.winners, userId, state.players]);
 
