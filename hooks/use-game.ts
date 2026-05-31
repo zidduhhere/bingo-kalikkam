@@ -167,7 +167,7 @@ export function useGame(userId: string, userName: string) {
         .filter(p => !p.isComputer && (!winner || p.id !== winner.id))
         .map(p => p.id);
 
-      insforge.rpc("record_match_result", {
+      insforge.database.rpc("record_match_result", {
         p_winner_id: winner ? winner.id : null,
         p_winner_name: winner ? winner.name : null,
         p_loser_ids: loserIds
