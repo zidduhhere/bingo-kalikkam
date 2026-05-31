@@ -141,8 +141,8 @@ function lookahead(
 }
 
 // ─── Defensive pressure score ────────────────────────────────────────────────
-// Measures how urgently the computer should call `num` to prevent the opponent
-// from completing a line that contains `num`.
+// Measures how much a number helps the opponent. The AI will SUBTRACT this 
+// from the total score to AVOID calling numbers that the opponent needs.
 function defensiveScore(
   opponentGrid: number[][] | undefined,
   num: number,
@@ -155,7 +155,7 @@ function defensiveScore(
       // Weight defense heavier the closer opponent is to completion
       const filled = calledCount(line, called);
       const idx = Math.min(filled, URGENCY_WEIGHTS.length - 1);
-      // At N-1 filled, opponent is about to win that line — block immediately
+      // At N-1 filled, opponent is about to win that line — avoid giving it to them!
       score += URGENCY_WEIGHTS[idx] * (filled >= line.length - 2 ? 2.5 : 1.0);
     }
   }
@@ -180,11 +180,10 @@ export function generateStrategicGrid(size = 5): number[][] {
  *
  * Strategy layers (evaluated in priority order for HARD mode):
  *   1. Immediate win  — if calling X gives the computer a new strike, do it.
- *   2. Emergency block — if opponent has N-1/N numbers called in any line, block.
- *   3. Full scored evaluation:
+ *   2. Full scored evaluation:
  *        score = offensiveScore * offWeight
  *              + minPathBonus   (numbers on the minimum-path-to-5-strikes lines)
- *              + defensiveScore * defWeight   (hard only)
+ *              - defensiveScore * defWeight   (hard only, subtract to avoid helping!)
  *              + lookahead bonus              (hard only)
  *              + noise                        (small for hard, larger for normal)
  */
@@ -216,32 +215,7 @@ export function getBestComputerMove(
     }
   }
 
-  // ── Layer 2: Emergency block (hard mode only) ─────────────────────────────
-  // If opponent is one number away from completing ANY line, block that number.
-  if (isHard && opponentGrid) {
-    const emergencies: number[] = [];
-    for (const line of getAllLines(opponentGrid)) {
-      const unfilled = uncalledInLine(line, calledSet);
-      if (unfilled.length === 1) {
-        emergencies.push(unfilled[0]);
-      }
-    }
-    if (emergencies.length > 0) {
-      // Among blockers, pick the one that also scores best offensively
-      let bestBlocker = emergencies[0];
-      let bestBlockerScore = -Infinity;
-      for (const blocker of emergencies) {
-        const s = offensiveScore(computerGrid, blocker, calledSet);
-        if (s > bestBlockerScore) {
-          bestBlockerScore = s;
-          bestBlocker = blocker;
-        }
-      }
-      return bestBlocker;
-    }
-  }
-
-  // ── Layer 3: Full scored evaluation ──────────────────────────────────────
+  // ── Layer 2: Full scored evaluation ──────────────────────────────────────
   // Pre-compute which numbers lie on the minimum-path-to-victory lines.
   // Numbers on those lines get a strong bonus so the AI marches toward the
   // shortest winning sequence rather than reacting greedily turn-by-turn.
@@ -264,7 +238,8 @@ export function getBestComputerMove(
     const pathBonus = optimalTargets.has(num) ? minPathBonus : 0;
     const noise = Math.random() * noiseScale;
 
-    const total = off * offWeight + def * defWeight + ahead + pathBonus + noise;
+    // Subtract defensive score so we don't give the opponent what they want
+    const total = off * offWeight - def * defWeight + ahead + pathBonus + noise;
 
     if (total > bestScore) {
       bestScore = total;
