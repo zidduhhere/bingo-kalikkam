@@ -1,7 +1,7 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0";
+import { useUser } from "@/components/user-provider";
 import { useGameContext } from "@/contexts/game-context";
 import { RoomCodeBadge } from "@/components/ui/room-code-badge";
 import { Button } from "@/components/ui/button";
@@ -13,35 +13,40 @@ export default function LobbyPage() {
   const mode = searchParams.get("mode");
   const router = useRouter();
   const { user } = useUser();
-  const { state, send } = useGameContext();
+  const { state, actions } = useGameContext();
 
   const isNew = code === "new";
-  const userId = user?.sub ?? "";
-  const userName = user?.name ?? "Player";
+  const userId = user?.id ?? "";
+
+  const hasSent = useRef(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || hasSent.current) return;
+    hasSent.current = true;
+
     if (isNew) {
-      send({ type: "CREATE_ROOM", userId, userName, vsComputer: mode === "computer" });
+      actions.createRoom(mode === "computer");
     } else {
-      send({ type: "JOIN_ROOM", roomCode: code, userId, userName });
+      actions.joinRoom(code);
     }
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   useEffect(() => {
     if (isNew && state.roomCode) router.replace(`/room/${state.roomCode}/lobby`);
   }, [state.roomCode, isNew, router]);
 
   useEffect(() => {
-    if (state.phase === "setup") router.push(`/room/${state.roomCode}/setup`);
-  }, [state.phase, state.roomCode, router]);
+    if (state.phase === "setup") router.push(`/room/${code}/setup`);
+  }, [state.phase, code, router]);
 
   const isHost = state.players[0]?.id === userId;
-  const displayCode = isNew ? "..." : code;
+  const displayCode = state.roomCode || (isNew ? "..." : code);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-zinc-50 p-6 dark:bg-zinc-950">
-      <h1 className="text-2xl font-bold">Waiting Room</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6 bg-transparent">
+      <div className="bg-white/60 backdrop-blur-sm p-8 rounded-3xl shadow-lg border border-zinc-200/50 text-center max-w-sm rotate-[-1deg]">
+        <h1 className="text-3xl font-bold text-blue-900">Room Lobby</h1>
       <RoomCodeBadge code={displayCode} />
       <div className="flex flex-col gap-3 w-full max-w-sm">
         <h2 className="text-sm font-semibold text-zinc-500">Players ({state.players.length})</h2>
@@ -63,12 +68,14 @@ export default function LobbyPage() {
           </ul>
         )}
       </div>
-      {isHost ? (
-        <Button onClick={() => send({ type: "READY" })} disabled={state.players.length < 2} className="w-full max-w-sm py-3">
-          Start Game
-        </Button>
-      ) : (
-        <p className="text-sm text-zinc-400">Waiting for the host to start...</p>
+      {state.players.length > 0 && (
+        isHost ? (
+          <Button onClick={() => actions.ready()} disabled={state.players.length < 2} className="w-full max-w-sm py-3">
+            Start Game
+          </Button>
+        ) : (
+          <p className="text-sm text-zinc-400">Waiting for the host to start...</p>
+        )
       )}
     </div>
   );

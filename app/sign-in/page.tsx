@@ -1,4 +1,12 @@
+"use client";
+
+import { insforge } from "@/lib/insforge";
+
 export default function SignInPage() {
+  const handleSignIn = async () => {
+    await insforge.auth.signInWithOAuth({ provider: "google", redirectTo: window.location.origin });
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
       <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -6,8 +14,8 @@ export default function SignInPage() {
           <h1 className="text-3xl font-bold tracking-tight">🎱 Bingo</h1>
           <p className="mt-2 text-sm text-zinc-500">Sign in to play with friends</p>
         </div>
-        <a
-          href="/auth/login"
+        <button
+          onClick={handleSignIn}
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -17,7 +25,7 @@ export default function SignInPage() {
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
           Continue with Google
-        </a>
+        </button>
       </div>
     </div>
   );

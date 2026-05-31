@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdfaf3; /* light yellowish paper */
+  --foreground: #222222; /* dark pencil/pen color */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-caveat), cursive;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  
+  /* Horizontal blue lines for notebook paper */
+  background-image: linear-gradient(rgba(100, 150, 200, 0.3) 1px, transparent 1px);
+  background-size: 100% 2.5rem; /* Line spacing */
+  background-position: 0 3.5rem; /* Start offset */
+}
+
+/* Ensure text inputs inherit the handwriting font */
+input, button {
+  font-family: inherit;
 }

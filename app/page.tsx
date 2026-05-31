@@ -1,14 +1,26 @@
-import { auth0 } from "@/lib/auth0";
+"use client";
+
+import { useUser } from "@/components/user-provider";
 import { redirect } from "next/navigation";
 import { HomeClient } from "./home-client";
+import { useEffect } from "react";
 
-export default async function HomePage() {
-  const session = await auth0.getSession();
-  if (!session?.user) redirect("/auth/login");
+export default function HomePage() {
+  const { user, isLoading } = useUser();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      redirect("/sign-in");
+    }
+  }, [user, isLoading]);
+
+  if (isLoading || !user) return <div className="p-8 text-center flex-1 items-center justify-center bg-transparent">Loading...</div>;
+
   return (
     <HomeClient
-      userName={session.user.name ?? "Player"}
-      userImage={session.user.picture ?? undefined}
+      userId={user.id}
+      userName={user.name ?? user.email ?? "Player"}
+      userImage={user.avatar_url}
     />
   );
 }

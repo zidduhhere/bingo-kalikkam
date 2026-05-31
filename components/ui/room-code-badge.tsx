@@ -8,10 +8,10 @@ export function RoomCodeBadge({ code }: { code: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50 px-6 py-4 dark:border-indigo-700 dark:bg-indigo-950/30">
-      <span className="font-mono text-3xl font-bold tracking-widest text-indigo-700 dark:text-indigo-300">{code}</span>
-      <button onClick={handleCopy} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-900/50">
-        {copied ? "Copied!" : "Copy"}
+    <div className="flex flex-col items-center gap-1 rounded-xl border-[3px] border-dashed border-blue-900/40 bg-transparent px-6 py-4 [border-radius:255px_15px_225px_15px/15px_225px_15px_255px] rotate-[1deg]">
+      <span className="font-mono text-5xl font-bold tracking-[0.25em] text-blue-900 mix-blend-multiply">{code}</span>
+      <button onClick={handleCopy} className="rounded-md px-2 py-1 text-lg font-medium text-red-500 transition-colors hover:bg-red-500/10 [border-radius:15px_255px_15px_225px/255px_15px_225px_15px]">
+        {copied ? "Copied!" : "Copy code"}
       </button>
     </div>
   );

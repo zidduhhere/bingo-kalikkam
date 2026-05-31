@@ -1,21 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Caveat } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/components/user-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const caveat = Caveat({
+  variable: "--font-caveat",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "Bingo",
-  description: "Multiplayer bingo game",
+  description: "Multiplayer bingo game - nostalgic edition",
 };
 
 export default function RootLayout({
@@ -26,9 +21,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${caveat.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col font-sans relative">
+        <div className="absolute top-0 bottom-0 left-[10%] md:left-16 w-0.5 bg-red-400/40 -z-10 pointer-events-none"></div>
         <UserProvider>{children}</UserProvider>
       </body>
     </html>

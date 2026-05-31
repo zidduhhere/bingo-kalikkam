@@ -1,9 +1,21 @@
-import { auth0 } from "@/lib/auth0";
+"use client";
+
+import { useUser } from "@/components/user-provider";
 import { redirect } from "next/navigation";
 import { GameProvider } from "@/contexts/game-context";
+import { useEffect } from "react";
 
-export default async function GameLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth0.getSession();
-  if (!session?.user) redirect("/auth/login");
-  return <GameProvider userId={session.user.sub}>{children}</GameProvider>;
+export default function GameLayout({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useUser();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      redirect("/sign-in");
+    }
+  }, [user, isLoading]);
+
+  if (isLoading || !user) return <div className="p-8">Loading...</div>;
+
+  const userName = user.name ?? user.email ?? "Player";
+  return <GameProvider userId={user.id} userName={userName}>{children}</GameProvider>;
 }

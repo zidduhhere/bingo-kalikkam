@@ -1,7 +1,50 @@
 "use client";
 
-import { Auth0Provider as Auth0UserProvider } from "@auth0/nextjs-auth0";
+import { createContext, useContext, useEffect, useState } from "react";
+import { insforge } from "@/lib/insforge";
+
+type User = {
+  id: string;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+};
+
+type AuthContextType = {
+  user: User | null;
+  isLoading: boolean;
+};
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+});
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  return <Auth0UserProvider>{children}</Auth0UserProvider>;
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const { data, error } = await insforge.auth.getCurrentUser();
+      if (data?.user) {
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.profile?.name,
+          avatar_url: data.user.profile?.avatar_url,
+        });
+      }
+      setIsLoading(false);
+    }
+    fetchUser();
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
+
+export const useUser = () => useContext(AuthContext);

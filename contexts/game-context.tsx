@@ -1,18 +1,26 @@
 "use client";
 import { createContext, useContext } from "react";
-import { useGame } from "@/hooks/use-game";
-import type { ClientMessage, GameState } from "@/lib/ws-types";
+import { useGame, type GameActions } from "@/hooks/use-game";
+import type { GameState } from "@/lib/ws-types";
 
 interface GameContextValue {
   state: GameState;
-  send: (msg: ClientMessage) => void;
+  actions: GameActions;
   setMyGrid: (grid: number[][]) => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
 
-export function GameProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
-  const game = useGame(userId);
+export function GameProvider({
+  children,
+  userId,
+  userName,
+}: {
+  children: React.ReactNode;
+  userId: string;
+  userName: string;
+}) {
+  const game = useGame(userId, userName);
   return <GameContext.Provider value={game}>{children}</GameContext.Provider>;
 }
 
