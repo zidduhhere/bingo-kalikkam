@@ -38,7 +38,7 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
             {lang === "EN" ? "School Edition" : "സ്കൂൾ ഓർമ്മകൾ"}
           </p>
         </div>
-        <div className="flex items-center justify-between rounded-xl border-2 border-blue-900/20 bg-white/40 px-4 py-3 shadow-sm rounded-[255px_15px_225px_15px/15px_225px_15px_255px]">
+        <div className="flex items-center justify-between border-2 border-blue-900/20 bg-white/40 px-4 py-3 shadow-sm rounded-[255px_15px_225px_15px/15px_225px_15px_255px]">
           <div className="flex items-center gap-3">
             {}
             {userImage && (
@@ -132,16 +132,19 @@ function LeaderboardPreview() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    insforge.database
-      .from("leaderboard")
-      .select("*")
-      .order("wins", { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
+    async function fetchLeaderboard() {
+      try {
+        const { data } = await insforge.database
+          .from("leaderboard")
+          .select("*")
+          .order("wins", { ascending: false })
+          .limit(5);
         if (data) setData(data);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    }
+    fetchLeaderboard();
   }, []);
 
   if (loading)
