@@ -169,6 +169,22 @@ export function useGame(userId: string, userName: string) {
     });
   }, [state.phase, state.winners, userId, userName]);
 
+  // When all non-computer players are ready, the host fires GAME_START_PLAYING.
+  // Doing this reactively (not inside submitGrid) avoids the race where both
+  // players submit simultaneously and neither sees the other as ready yet.
+  const gameStartSentRef = useRef(false);
+  useEffect(() => {
+    if (state.phase !== "setup" || isLocalGame.current) return;
+    if (state.players.length < 2) return;
+    const allReady = state.players.every(p => p.isComputer || p.isReady);
+    if (!allReady) return;
+    const isHost = state.players[0]?.id === userId;
+    if (!isHost) return;
+    if (gameStartSentRef.current) return;
+    gameStartSentRef.current = true;
+    publishRef.current("GAME_START_PLAYING", { currentTurnId: state.players[0].id });
+  }, [state.phase, state.players, userId]);
+
   // ── event handler ─────────────────────────────────────────────────────────
 
   const gridsRef = useRef<Record<string, number[][]>>({});
@@ -309,6 +325,7 @@ export function useGame(userId: string, userName: string) {
             difficulty: prevState.difficulty,
           };
           leaderboardWrittenRef.current = false;
+          gameStartSentRef.current = false;
           break;
         }
 
@@ -450,13 +467,16 @@ export function useGame(userId: string, userName: string) {
 
       await publish("PLAYER_JOINED", { players: updatedPlayers });
 
-      if (computer || allReady) {
-        // Broadcast start — in single-player vs computer mode, the host fires this
-        const firstTurnId = updatedPlayers[0].id;
-        await publish("GAME_START_PLAYING", {
-          currentTurnId: firstTurnId,
-        });
+      // For vs-computer local games, trigger start immediately since the
+      // reactive useEffect is disabled for local games (isLocalGame.current).
+      if (computer) {
+        const firstTurnId = updatedPlayers[0]?.id;
+        if (firstTurnId) {
+          await publish("GAME_START_PLAYING", { currentTurnId: firstTurnId });
+        }
       }
+      // Multiplayer: start is triggered by the reactive useEffect once all
+      // players are marked ready, avoiding the simultaneous-submit race.
     },
     [userId, publish]
   );

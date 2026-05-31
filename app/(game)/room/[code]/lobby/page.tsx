@@ -21,6 +21,7 @@ export default function LobbyPage() {
   const userId = user?.id ?? "";
 
   const hasSent = useRef(false);
+  const isGameTransition = useRef(false);
 
   useEffect(() => {
     if (!userId || hasSent.current) return;
@@ -39,13 +40,18 @@ export default function LobbyPage() {
   }, [state.roomCode, isNew, router]);
 
   useEffect(() => {
-    if (state.phase === "setup") router.push(`/room/${code}/setup`);
+    if (state.phase === "setup") {
+      isGameTransition.current = true;
+      router.push(`/room/${code}/setup`);
+    }
   }, [state.phase, code, router]);
 
-  // Publish PLAYER_LEFT when a non-host navigates away from the lobby
+  // Only publish PLAYER_LEFT when the user intentionally leaves (not on game start)
   useEffect(() => {
     return () => {
-      actions.leaveRoom();
+      if (!isGameTransition.current) {
+        actions.leaveRoom();
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
