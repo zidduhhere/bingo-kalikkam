@@ -200,6 +200,46 @@ export function useGame(userId: string, userName: string) {
 
   const gridsRef = useRef<Record<string, number[][]>>({});
 
+  const triggerComputerTurn = useCallback(() => {
+    // Only the local host handles the computer's turn to prevent duplicates
+    if (stateRef.current.players[0]?.id !== userId) return;
+
+    setTimeout(async () => {
+      const latestState = stateRef.current;
+      if (latestState.phase !== "playing" || latestState.currentTurnId !== "computer") return;
+
+      const opponentGrid = latestState.players.find(p => !p.isComputer) ? gridsRef.current[latestState.players.find(p => !p.isComputer)!.id] : undefined;
+      
+      const num = getBestComputerMove(
+        gridsRef.current["computer"]!,
+        opponentGrid,
+        latestState.calledNumbers,
+        latestState.difficulty
+      );
+
+      if (num === -1) {
+         console.warn("No available moves for computer.");
+         return;
+      }
+
+      const compPlayers = latestState.players;
+      const compIndex = compPlayers.findIndex((p) => p.id === "computer");
+      let compNextIndex = compIndex;
+      let compAttempts = 0;
+      do {
+        compNextIndex = (compNextIndex + 1) % compPlayers.length;
+        compAttempts++;
+      } while (latestState.winners.some(w => w.id === compPlayers[compNextIndex].id) && compAttempts < compPlayers.length);
+      const compNextTurnId = compPlayers[compNextIndex].id;
+
+      await publishRef.current("NUMBER_CALLED", {
+        number: num,
+        calledBy: "computer",
+        nextTurnId: compNextTurnId,
+      });
+    }, Math.random() * 1000 + 1000);
+  }, [userId]);
+
   const handleEvent = useCallback(
     async (event: string, payload: Record<string, unknown>) => {
       // Compute nextState synchronously from stateRef so that side-effects
@@ -254,6 +294,9 @@ export function useGame(userId: string, userName: string) {
             phase: "playing",
             currentTurnId: payload.currentTurnId as string,
           };
+          if (nextState.currentTurnId === "computer") {
+            triggerComputerTurn();
+          }
           break;
 
         case "NUMBER_CALLED": {
@@ -270,6 +313,9 @@ export function useGame(userId: string, userName: string) {
             return p;
           });
           nextState = { ...prevState, calledNumbers, players, currentTurnId: nextTurnId };
+          if (nextState.currentTurnId === "computer") {
+            triggerComputerTurn();
+          }
           break;
         }
 
@@ -365,7 +411,7 @@ export function useGame(userId: string, userName: string) {
         await publishRef.current("GAME_OVER_GRIDS", { grids: gridsRef.current });
       }
     },
-    [userId, userName]
+    [userId, userName, triggerComputerTurn]
   );
 
 
@@ -518,46 +564,6 @@ export function useGame(userId: string, userName: string) {
         calledBy: userId,
         nextTurnId,
       });
-
-      // Computer's turn
-      const nextPlayer = players[nextIndex];
-      if (nextPlayer?.isComputer) {
-        setTimeout(async () => {
-          const latestState = stateRef.current;
-          if (latestState.phase !== "playing" || latestState.currentTurnId !== "computer") return;
-
-          const usedNumbers = new Set(latestState.calledNumbers);
-          const opponentGrid = latestState.players.find(p => !p.isComputer) ? gridsRef.current[latestState.players.find(p => !p.isComputer)!.id] : undefined;
-          
-          const num = getBestComputerMove(
-            gridsRef.current["computer"]!,
-            opponentGrid,
-            latestState.calledNumbers,
-            latestState.difficulty
-          );
-
-          if (num === -1) {
-             console.warn("No available moves for computer.");
-             return;
-          }
-
-          const compPlayers = latestState.players;
-          const compIndex = compPlayers.findIndex((p) => p.id === "computer");
-          let compNextIndex = compIndex;
-          let compAttempts = 0;
-          do {
-            compNextIndex = (compNextIndex + 1) % compPlayers.length;
-            compAttempts++;
-          } while (latestState.winners.some(w => w.id === compPlayers[compNextIndex].id) && compAttempts < compPlayers.length);
-          const compNextTurnId = compPlayers[compNextIndex].id;
-
-          await publish("NUMBER_CALLED", {
-            number: num,
-            calledBy: "computer",
-            nextTurnId: compNextTurnId,
-          });
-        }, Math.random() * 1000 + 1000);
-      }
     },
     [userId, publish]
   );
