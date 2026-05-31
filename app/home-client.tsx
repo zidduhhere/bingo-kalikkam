@@ -24,19 +24,19 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
       setError("Room code must be 6 characters");
       return;
     }
-    
+
     // Validate room exists in the backend
     const { data } = await insforge.database
       .from("rooms")
       .select("code")
       .eq("code", code)
       .single();
-      
+
     if (!data) {
       setError("This room does not exist or has expired.");
       return;
     }
-    
+
     router.push(`/room/${code}/lobby`);
   };
 
@@ -44,7 +44,6 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-transparent overflow-visible">
       {/* Transparent Container to let the notebook background show */}
       <div className="mx-auto w-full max-w-md space-y-10 p-2 transform rotate-1">
-        
         <div className="text-center space-y-1 py-4">
           <h1 className="text-7xl md:text-8xl font-black text-blue-900 drop-shadow-sm -rotate-2 py-1 leading-[1.2]">
             Bingo
@@ -101,7 +100,7 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
         {/* Join Section */}
         <div className="flex flex-col gap-4 border-t-2 border-dashed border-blue-900/20 pt-8 mt-4">
           <h2 className="text-2xl font-black text-blue-900/60 text-center font-(family-name:--font-caveat) -rotate-1">
-             {lang === "EN" ? "Got a Code?" : "കോഡ് ഉണ്ടോ?"}
+            {lang === "EN" ? "Got a Code?" : "കോഡ് ഉണ്ടോ?"}
           </h2>
           <div className="flex gap-3 items-stretch">
             <Input
@@ -122,7 +121,11 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
               {lang === "EN" ? "Join" : "കയറാം"}
             </Button>
           </div>
-          {error && <p className="text-xl text-red-500 font-bold text-center -rotate-1">{error}</p>}
+          {error && (
+            <p className="text-xl text-red-500 font-bold text-center -rotate-1">
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Leaderboard Section */}
@@ -133,7 +136,7 @@ export function HomeClient({ userName, userImage }: HomeClientProps) {
           <TopPlayerCard />
           <Button
             onClick={() => router.push("/leaderboard")}
-            variant="link"
+            variant="secondary"
             className="text-blue-800/80 font-(family-name:--font-caveat) text-2xl hover:text-blue-600 transition-colors mt-2"
           >
             {lang === "EN" ? "View Full Leaderboard →" : "ലീഡർബോർഡ് കാണുക →"}
@@ -182,7 +185,9 @@ function TopPlayerCard() {
   return (
     <div className="relative flex flex-col items-center gap-1 py-5 px-8 bg-white/40 rounded-[255px_15px_225px_15px/15px_225px_15px_255px] border-2 border-amber-400/80 shadow-[0_0_15px_2px_rgba(251,191,36,0.15)] transform rotate-1">
       {/* Crown */}
-      <span className="text-5xl drop-shadow-md leading-none absolute -top-6 -right-3 transform rotate-12">👑</span>
+      <span className="text-5xl drop-shadow-md leading-none absolute -top-6 -right-3 transform rotate-12">
+        👑
+      </span>
       {/* Name */}
       <span className="text-4xl font-black text-blue-950 font-(family-name:--font-caveat) mt-1 leading-tight">
         {player.user_name || "Unknown"}
@@ -190,13 +195,21 @@ function TopPlayerCard() {
       {/* Stats row */}
       <div className="flex items-center gap-6 mt-2">
         <div className="flex flex-col items-center">
-          <span className="text-3xl font-black text-emerald-600 leading-none font-(family-name:--font-caveat)">{player.wins}</span>
-          <span className="text-xs font-bold text-emerald-600/70 uppercase tracking-widest font-sans">Wins</span>
+          <span className="text-3xl font-black text-emerald-600 leading-none font-(family-name:--font-caveat)">
+            {player.wins}
+          </span>
+          <span className="text-xs font-bold text-emerald-600/70 uppercase tracking-widest font-sans">
+            Wins
+          </span>
         </div>
         <div className="w-px h-8 bg-blue-900/20 transform rotate-12" />
         <div className="flex flex-col items-center">
-          <span className="text-3xl font-black text-red-500 leading-none font-(family-name:--font-caveat)">{player.losses}</span>
-          <span className="text-xs font-bold text-red-500/70 uppercase tracking-widest font-sans">Losses</span>
+          <span className="text-3xl font-black text-red-500 leading-none font-(family-name:--font-caveat)">
+            {player.losses}
+          </span>
+          <span className="text-xs font-bold text-red-500/70 uppercase tracking-widest font-sans">
+            Losses
+          </span>
         </div>
       </div>
     </div>
